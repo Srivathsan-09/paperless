@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Started - Paperless</title>
+    <link rel="icon" type="image/png" href="Logo2.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-color);
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .get-started-container {
+            text-align: center;
+            animation: fadeIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 500px;
+        }
+
+        .gs-logo {
+            width: 120px;
+            height: auto;
+            margin-bottom: 0.5rem;
+            filter: drop-shadow(0 10px 20px rgba(99, 102, 241, 0.2));
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .gs-brand {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            letter-spacing: -1px;
+        }
+
+        .gs-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            margin-top: -1.5rem;
+            font-weight: 500;
+        }
+
+        .get-started-btn {
+            background: var(--primary);
+            color: #ffffff;
+            border: none;
+            padding: 1rem 3rem;
+            font-size: 1.2rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .get-started-btn:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 30px -5px rgba(99, 102, 241, 0.5);
+            background: var(--primary-hover);
+        }
+
+        .get-started-btn:active {
+            transform: scale(0.98);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+    </style>
+</head>
+
+<body> <!-- Theme handled by script -->
+    <div class="get-started-container">
+        <img src="Logo2.png" alt="Paperless" class="gs-logo">
+        <h1 class="gs-brand">Paperless</h1>
+        <p class="gs-subtitle">Your digital home management awaits</p>
+
+        <button class="get-started-btn" onclick="finishOnboarding()">
+            Get Started
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        // Check Theme
+        const savedTheme = localStorage.getItem('PAPERLESS_THEME') || 'light-theme';
+        document.body.className = savedTheme;
+
+        // Route Guard
+        const isNewUser = sessionStorage.getItem('isNewUser');
+        const token = localStorage.getItem('authToken');
+
+        if (!token || !isNewUser) {
+            // Not authorized or not a new user -> Go Home
+            window.location.replace('home.html');
+        }
+
+        function finishOnboarding() {
+            // Clear flag
+            sessionStorage.removeItem('isNewUser');
+
+            // Redirect
+            const container = document.querySelector('.get-started-container');
+            container.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            container.style.opacity = '0';
+            container.style.transform = 'scale(0.95)';
+
+            setTimeout(() => {
+                window.location.replace('home.html');
+            }, 500);
+        }
+    </script>
+</body>
+
+</html>

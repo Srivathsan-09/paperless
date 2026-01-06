@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paperless</title>
+    <link rel="icon" type="image/png" href="Logo2.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-color);
+            overflow: hidden;
+        }
+
+        .success-container {
+            text-align: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .success-logo {
+            width: 100px;
+            height: auto;
+            margin-bottom: 1.5rem;
+            animation: bounce 2s infinite;
+        }
+
+        .success-text {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="light-theme"> <!-- Default to light, script can check theme -->
+    <div class="success-container">
+        <img src="Logo2.png" alt="Success" class="success-logo">
+        <h2 class="success-text">Success</h2>
+    </div>
+
+    <script>
+        // Theme handling
+        const savedTheme = localStorage.getItem('PAPERLESS_THEME') || 'light-theme';
+        document.body.className = savedTheme;
+
+        // Session Validations
+        const loginJustCompleted = sessionStorage.getItem('loginJustCompleted');
+        const token = localStorage.getItem('authToken');
+
+        if (!token || !loginJustCompleted) {
+            // Illegal access -> redirect to dashboard/home immediately
+            window.location.replace('home.html');
+        } else {
+            // Valid access
+            // Clear the flag so this page cannot be reloaded
+            sessionStorage.removeItem('loginJustCompleted');
+
+            // Wait 2 seconds then redirect
+            setTimeout(() => {
+                const container = document.querySelector('.success-container');
+                container.style.animation = 'fadeOut 0.3s ease-out forwards';
+
+                setTimeout(() => {
+                    window.location.replace('home.html');
+                }, 300);
+            }, 2000);
+        }
+    </script>
+</body>
+
+</html>
