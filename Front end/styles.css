@@ -213,7 +213,7 @@ body::after {
     .header-main-row {
         width: 100%;
         display: grid;
-        grid-template-columns: 44px 1fr auto;
+        grid-template-columns: auto 1fr auto;
         /* Flexible right side for buttons */
         align-items: center;
         height: 48px;
@@ -249,6 +249,13 @@ body::after {
         text-align: center !important;
         font-weight: 800 !important;
         color: var(--primary) !important;
+
+        /* Absolute Centering to ignore unequal column widths */
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+        z-index: 10;
     }
 
     .header-sub-row {
@@ -281,9 +288,14 @@ body::after {
     }
 
     .theme-btn {
-        width: 36px !important;
-        height: 36px !important;
-        border-radius: 10px !important;
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 8px !important;
+    }
+
+    .theme-btn svg {
+        width: 18px !important;
+        height: 18px !important;
     }
 
     .logout-btn {
@@ -304,6 +316,26 @@ body::after {
 
     .add-text {
         font-size: 0.7rem !important;
+    }
+
+    /* Compacting Month Selector for Mobile */
+    .month-selector-trigger {
+        padding: 0.4rem 0.6rem !important;
+        font-size: 0.8rem !important;
+        height: 36px;
+        /* Constrain width to prevent overlap */
+        max-width: 130px;
+        overflow: hidden;
+    }
+
+    .month-selector-trigger span {
+        min-width: 0 !important;
+        width: 100% !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        text-align: center;
     }
 }
 
@@ -4948,17 +4980,32 @@ body.dark-theme .month-nav-btn:hover {
 
 @media (max-width: 640px) {
 
-    .entry-view-container,
-    .entry-history-card {
+    .entry-view-container {
         width: 100%;
-        /* Mobile full width */
-        /* Mobile full width */
         max-width: 100%;
         border-radius: 20px;
         margin-top: 10px;
         padding: 20px 12px;
         padding-bottom: 20px;
+        margin-bottom: 10px;
+        /* Reduced from 30px */
+    }
+
+    .history-scroller {
+        height: 180px !important;
+    }
+
+    .entry-history-card {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 20px;
+        margin-top: 0px;
+        /* Reduced from 10px */
+        padding: 20px 12px;
+        padding-bottom: 20px;
         margin-bottom: 30px;
+        min-height: 250px;
+        /* Increased min-height */
     }
 
 }
@@ -5126,7 +5173,6 @@ body.dark-theme .month-nav-btn:hover {
 
 .history-scroller {
     height: 150px;
-    /* Reduced fixed height as requested */
     overflow-y: auto;
     padding-right: 0.5rem;
     scrollbar-width: thin;
@@ -5215,4 +5261,61 @@ body.dark-theme .month-nav-btn:hover {
     font-weight: 800;
     font-size: 1rem;
     color: var(--text-main);
+}
+
+/* Milk Tracker Tabs Container */
+.overhaul-tabs-row {
+    position: relative;
+    /* Anchor for absolute back button */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Center tabs */
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+/* Ensure tab group stays centered and doesn't stretch */
+.tab-group.v3 {
+    margin: 0 auto;
+}
+
+/* Full Width Breakout for Misc/Savings Header */
+.view-header-breakout {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.view-header-breakout .back-btn-v3 {
+    position: absolute;
+    left: 5rem;
+    /* Match App Header (4rem) + Header Left (1rem) */
+    transform: translateY(-50%);
+}
+
+/* Unified Back Button Style for Milk & Misc (Match Month Selector) */
+.view-header-breakout .back-btn-v3,
+.overhaul-tabs-row .back-btn-v3 {
+    border-radius: 12px;
+    /* Match Month Selector Curve */
+    padding: 0.6rem 1.25rem;
+    /* Increased size */
+    font-size: 0.95rem;
+    font-weight: 700;
+    /* Ensure Left is managed by specific contexts, but style is shared */
+}
+
+.overhaul-tabs-row .back-btn-v3 {
+    top: 50%;
+    transform: translateY(-50%);
+    position: absolute;
+    /* Left is manipulated via inline style in Milk, but ideally should be managed here if consistent */
 }

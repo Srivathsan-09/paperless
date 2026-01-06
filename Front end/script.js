@@ -184,7 +184,10 @@ const HeaderManager = {
         // 1. Reset
         const isMobile = window.innerWidth <= 768;
 
-        if (backBtnContainer) backBtnContainer.innerHTML = '';
+        if (backBtnContainer) {
+            backBtnContainer.innerHTML = '';
+            backBtnContainer.style.display = 'none';
+        }
         if (subContentRow) {
             subContentRow.innerHTML = '';
             subContentRow.classList.remove('active');
@@ -213,6 +216,7 @@ const HeaderManager = {
 
         // 2. Back Button
         if (config.showBack && backBtnContainer) {
+            backBtnContainer.style.display = 'block';
             // Use global handler
             backBtnContainer.innerHTML = `
                 <button id="dynamicBackBtn" class="back-btn-v3" onclick="window.handleHeaderBack(event)">
@@ -993,7 +997,7 @@ async function openCategory(id, keepOverlayOpen = false) {
     // Unified Header Update
     isMobile = window.innerWidth <= 768;
     HeaderManager.update({
-        showBack: true,
+        showBack: isMobile,
         onBack: 'renderDashboard',
         hideMonthSelector: isMobile && cat.name !== 'Milk' // Simplify on mobile
     });
@@ -1013,8 +1017,14 @@ async function openCategory(id, keepOverlayOpen = false) {
     if (toolContainer) toolContainer.style.display = 'block';
 
     main.innerHTML = `
-        <div class="view-header desktop-only" style="margin-bottom: 1.5rem;">
-            <h2 class="category-title">${cat.name}</h2>
+        <div class="overhaul-header desktop-only" style="margin-bottom: 1.5rem;">
+            <div class="overhaul-tabs-row">
+                <button class="back-btn-v3 desktop-only" onclick="renderDashboard()" style="left: 4rem;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+                    Back
+                </button>
+                <h2 class="category-title" style="margin: 0;">${cat.name}</h2>
+            </div>
         </div>
         
         <div class="category-grid subcategory-grid">
@@ -1338,7 +1348,7 @@ async function renderEBBillForm(container, categoryId, customBackAction = null) 
 
     container.innerHTML = getUniversalFormHTML({
         title: 'EB Bill Entry',
-        onBack: onBackAction,
+        onBack: onBack,
         itemNameLabel: 'Item Name',
         itemNameValue: 'EB Bill',
         customFieldsHTML,
@@ -1391,7 +1401,7 @@ async function renderGenericForm(container, subName, categoryId, customBackActio
 
     container.innerHTML = getUniversalFormHTML({
         title: `${subName} Entry`,
-        onBack: onBackAction,
+        onBack: onBack,
         itemNameLabel: isDescriptive ? 'Description' : 'Item Name',
         itemNamePlaceholder: isDescriptive ? 'What was this for?' : 'e.g. Bread, Car service',
         customFieldsHTML,
@@ -1588,23 +1598,15 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
     const isOverlay = targetId === 'panelContent';
 
     // Unified Header Update (Inject Tabs and Month into App Header only if NOT in overlay)
+    // Unified Header Update
     if (!isOverlay) {
+        const isMobile = window.innerWidth <= 768;
         HeaderManager.update({
-            showBack: true,
+            showBack: isMobile, // Only show header back button on mobile
             onBack: "STATE.view='dashboard'; renderDashboard();",
-            hideMonthSelector: true,
+            hideMonthSelector: false,
             subContentHTML: null,
-            navRowHTML: STATE.milkSubView === 'calendar' ? `
-                <div class="milk-month-pill mobile-only">
-                    <button class="milk-nav-arrow" onclick="navMonth(-1)">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    </button>
-                    <span class="milk-month-label">${MONTHS[STATE.selectedMonth]} ${STATE.selectedYear}</span>
-                    <button class="milk-nav-arrow" onclick="navMonth(1)">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-                    </button>
-                </div>
-            ` : null
+            navRowHTML: null
         });
     }
 
@@ -1623,6 +1625,12 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
 
             <div class="overhaul-header" style="${window.innerWidth <= 768 ? 'margin-bottom: 0.5rem;' : ''}">
                 <div class="overhaul-tabs-row">
+                    <!-- Desktop Back Button -->
+                    <button class="back-btn-v3 desktop-only" onclick="renderDashboard()" style="left: -0.8rem;">
+                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+                         Back
+                    </button>
+
                     <div class="tab-group v3">
                         <button class="tab-btn ${STATE.milkSubView === 'calendar' ? 'active' : ''}" onclick="STATE.milkSubView='calendar'; renderMilkTracker(document.getElementById('${targetId}'))">
                             <svg class="desktop-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
