@@ -1410,6 +1410,11 @@ textarea:focus {
     }
 }
 
+/* Hide Header Back Button Globally */
+#headerBackBtn {
+    display: none !important;
+}
+
 .overhaul-tabs-row {
     flex: 1;
     display: flex;
@@ -1641,11 +1646,11 @@ textarea:focus {
     }
 
     .overhaul-top-nav {
-        flex-direction: row !important;
-        /* Horizontal on mobile too */
+        flex-direction: column !important;
+        /* Vertical on mobile to prevent overflow */
         align-items: center !important;
-        justify-content: space-between !important;
-        gap: 0.75rem !important;
+        justify-content: center !important;
+        gap: 1rem !important;
         padding-bottom: 1rem !important;
         margin-bottom: 1rem !important;
         border-bottom: 1px solid var(--border) !important;
@@ -1654,28 +1659,57 @@ textarea:focus {
     .milk-month-pill {
         display: flex !important;
         align-items: center !important;
-        gap: 1rem !important;
-        padding: 0.65rem 1.25rem !important;
+        gap: 0.5rem !important;
+        padding: 0.4rem 1rem !important;
         background: #f1f4ff !important;
-        /* Lavender background from reference */
         border-radius: 100px !important;
         box-shadow: 0 2px 10px rgba(99, 102, 241, 0.05) !important;
-        width: 100% !important;
+        width: fit-content !important;
+        margin: 0 auto !important;
         justify-content: center !important;
         border: none !important;
     }
 
     .milk-month-label {
-        font-size: 0.8rem !important;
+        font-size: 0.9rem !important;
+        white-space: nowrap !important;
     }
 
     .milk-search-horizontal {
-        width: auto !important;
-        flex-direction: row !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
         align-items: center !important;
+        justify-content: center !important;
         gap: 0.5rem !important;
-        display: none !important;
-        /* Hide search details on small mobile header, keep it clean */
+        margin-top: 0 !important;
+    }
+
+    .milk-search-horizontal .search-item {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.25rem !important;
+    }
+
+    .milk-search-horizontal .label {
+        font-size: 0.85rem !important;
+    }
+
+    .milk-search-horizontal .search-input {
+        width: 90px !important;
+        /* Narrower to prevent overflow */
+        padding: 0.35rem !important;
+        font-size: 0.8rem !important;
+    }
+
+    .search-actions {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+        gap: 1rem !important;
+        margin-top: 0.25rem !important;
+        flex: 0 0 100% !important;
+        /* Force new line */
     }
 
     .milk-calendar-grid.v3 {
@@ -1704,15 +1738,20 @@ textarea:focus {
     }
 
     .day-header-v4 .full-date {
-        font-size: 0.8rem !important;
+        font-size: 0.7rem !important;
+        /* Reduced for 3-col grid */
         font-weight: 800 !important;
         display: block !important;
+        line-height: 1.2;
     }
 
     .day-header-v4 .day-name {
-        font-size: 0.75rem !important;
+        font-size: 0.65rem !important;
+        /* Reduced for 3-col grid */
         display: block !important;
         margin-left: 0 !important;
+        color: var(--text-muted);
+        line-height: 1.2;
     }
 
     .day-body-v4 {
@@ -1839,16 +1878,54 @@ textarea:focus {
     }
 
     .milk-calendar-grid.v3 {
-        grid-template-columns: 1fr;
-        /* Force 1 column on mobile */
-        gap: 16px;
+        grid-template-columns: repeat(3, 1fr) !important;
+        /* Match reference image 3-column layout */
+        gap: 8px !important;
     }
 
     .day-card.overhaul {
-        height: auto;
-        /* Allow height to grow on mobile */
-        min-height: 100px;
-        padding: 0.85rem;
+        height: auto !important;
+        min-height: 85px !important;
+        /* Slightly taller to accommodate header+body spacing */
+        padding: 0.6rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        /* Header top, body bottom/center */
+        align-items: center !important;
+    }
+
+    /* Left align the header container specifically */
+    .day-card.overhaul .day-header-v4 {
+        align-self: flex-start !important;
+        text-align: left !important;
+        width: 100% !important;
+        margin-bottom: 4px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+
+    /* Keep body (add button) centered */
+    .day-body-v4 {
+        justify-content: center !important;
+        margin-top: 0 !important;
+        width: 100% !important;
+        flex: 1;
+    }
+
+    .day-card.overhaul .add-icon-circle {
+        width: 30px !important;
+        height: 30px !important;
+    }
+
+    .day-card.overhaul .add-text {
+        font-size: 0.65rem !important;
+        margin-top: 2px;
+    }
+
+    .day-card.overhaul:hover {
+        transform: none !important;
     }
 
     .grand-total-display.v3 .amount {
@@ -2482,6 +2559,18 @@ textarea:focus {
 .back-btn-v3:hover {
     background: var(--primary);
     color: #ffffff;
+}
+
+.dark-theme .back-btn-v3 {
+    background: transparent;
+    color: #ffffff;
+    border: 1px solid var(--border);
+}
+
+.dark-theme .back-btn-v3:hover {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
 }
 
 .category-form-title {
@@ -5318,4 +5407,112 @@ body.dark-theme .month-nav-btn:hover {
     transform: translateY(-50%);
     position: absolute;
     /* Left is manipulated via inline style in Milk, but ideally should be managed here if consistent */
+}
+
+/* --- Pagination Styles (Added for Search Results) --- */
+.calendar-column.v3 {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 600px;
+    /* Fixed height container */
+    justify-content: space-between;
+}
+
+.pagination-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    /* Push to bottom */
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+/* --- Mobile Fixes --- */
+@media (max-width: 768px) {
+    .milk-overhaul-wrapper {
+        margin-top: -1.5rem;
+        /* Lift content up */
+    }
+
+    .overhaul-tabs-row {
+        margin-bottom: 0.5rem !important;
+        /* Reduce gap below tabs */
+    }
+
+    .view-container {
+        padding-top: 55px !important;
+        /* Slightly reduce top padding if needed */
+    }
+
+    /* Refined Mobile Filter Styles */
+    .search-input {
+        width: 210px;
+        /* Increased significantly for full text visibility */
+        padding: 0.6rem 0.5rem;
+        /* Slightly larger touch area */
+    }
+
+    .milk-month-pill {
+        border-radius: 12px !important;
+        /* Further reduced curve */
+        padding: 0.5rem 1.5rem;
+        /* Adjusted padding */
+    }
+
+    /* Center Export PDF Button on Mobile */
+    .ss-export-hero-btn {
+        width: auto !important;
+        min-width: 200px;
+        margin: 0 auto;
+        display: flex;
+    }
+
+    .ss-desc {
+        /* Ensure footer flex correctness if needed */
+        justify-content: center;
+    }
+}
+
+.page-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-main);
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    box-shadow: var(--shadow-soft);
+}
+
+.page-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: var(--shadow-hover);
+}
+
+.page-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-color);
+    color: var(--text-muted);
+    border-color: transparent;
+    box-shadow: none;
+    transform: none;
 }

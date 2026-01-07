@@ -1538,6 +1538,24 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
     if (!STATE.milkSubView) STATE.milkSubView = 'calendar';
     STATE.currentMilkPage = page;
 
+
+    // Unified Header Update (Inject Tabs and Month into App Header)
+    const targetId = container && (container.id || (container.closest('#panelContent') ? 'panelContent' : 'categoryToolContainer'));
+    const isOverlay = targetId === 'panelContent';
+
+    // Unified Header Update (Inject Tabs and Month into App Header only if NOT in overlay)
+    // Unified Header Update
+    if (!isOverlay) {
+        const isMobile = window.innerWidth <= 768;
+        HeaderManager.update({
+            showBack: isMobile, // Only show header back button on mobile
+            onBack: "STATE.view='dashboard'; renderDashboard();",
+            hideMonthSelector: true,
+            subContentHTML: null,
+            navRowHTML: null
+        });
+    }
+
     let milkDataArr = [];
     let milkStats = { totalLitres: 0, totalAmount: 0, averageSpend: 0, maxSpend: 0, minSpend: Infinity };
 
@@ -1574,41 +1592,33 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
         return;
     }
 
-    const targetId = container.id || (container.closest('#panelContent') ? 'panelContent' : 'categoryToolContainer');
+    // --- SEARCH PAGINATION LOGIC ---
+    let paginatedDates = [];
+    let totalPages = 1;
+    let searchRangeStr = 'null';
 
-    // Generate all dates for search range
-    let displayDates = [];
-    if (searchRange) {
-        let curr = new Date(searchRange.from);
-        let end = new Date(searchRange.to);
-        while (curr <= end) {
-            displayDates.push(new Date(curr));
-            curr.setDate(curr.getDate() + 1);
+    if (searchRange && searchRange.from && searchRange.to) {
+        const startDate = new Date(searchRange.from);
+        const endDate = new Date(searchRange.to);
+        const allDates = [];
+
+        // Generate all dates in range
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            allDates.push(new Date(d));
         }
+
+        const pageSize = 28; // 4 weeks roughly
+        totalPages = Math.ceil(allDates.length / pageSize);
+
+        // Ensure page is within bounds
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+
+        const startIndex = (page - 1) * pageSize;
+        paginatedDates = allDates.slice(startIndex, startIndex + pageSize);
+        searchRangeStr = JSON.stringify(searchRange).replace(/"/g, "&quot;");
     }
 
-    const pageSize = 28; // 7x4 grid
-    const totalPages = searchRange ? Math.ceil(displayDates.length / pageSize) : 1;
-    const paginatedDates = searchRange ? displayDates.slice((page - 1) * pageSize, page * pageSize) : [];
-
-    // Safe stringification for template injection
-    const searchRangeStr = searchRange ? JSON.stringify(searchRange).replace(/"/g, '&quot;') : 'null';
-
-    // Unified Header Update (Inject Tabs and Month into App Header)
-    const isOverlay = targetId === 'panelContent';
-
-    // Unified Header Update (Inject Tabs and Month into App Header only if NOT in overlay)
-    // Unified Header Update
-    if (!isOverlay) {
-        const isMobile = window.innerWidth <= 768;
-        HeaderManager.update({
-            showBack: isMobile, // Only show header back button on mobile
-            onBack: "STATE.view='dashboard'; renderDashboard();",
-            hideMonthSelector: false,
-            subContentHTML: null,
-            navRowHTML: null
-        });
-    }
 
     container.innerHTML = `
         ${isOverlay ? `
@@ -1631,6 +1641,11 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
                          Back
                     </button>
 
+                    <!-- Mobile Back Button (Icon only, left of tabs) -->
+                    <button class="icon-btn mobile-only" onclick="renderDashboard()" style="margin-right: 0.5rem; width: 36px; height: 36px;">
+                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    </button>
+
                     <div class="tab-group v3">
                         <button class="tab-btn ${STATE.milkSubView === 'calendar' ? 'active' : ''}" onclick="STATE.milkSubView='calendar'; renderMilkTracker(document.getElementById('${targetId}'))">
                             <svg class="desktop-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
@@ -1645,7 +1660,7 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
             </div>
 
             <div class="overhaul-main-card">
-                <div class="overhaul-top-nav desktop-only" style="${STATE.milkSubView === 'analysis' ? 'display: none;' : ''}">
+                <div class="overhaul-top-nav" style="${STATE.milkSubView === 'analysis' ? 'display: none;' : ''}">
                     <!-- Month Selector (Left) -->
                     <div class="milk-month-pill" style="${searchRange ? 'visibility: hidden;' : ''}">
                         <button class="milk-nav-arrow" onclick="navMonth(-1)">
@@ -1947,24 +1962,70 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
 
 
 async function handleMilkSearch(targetId) {
-    const from = document.getElementById('searchFrom').value;
-    const to = document.getElementById('searchTo').value;
-    if (!from || !to) return;
+    console.log("handleMilkSearch triggered. TargetId:", targetId);
 
-    // Use passed targetId, or fallback to smart detection if not provided (legacy safety)
-    let container;
-    if (targetId) {
+    // 1. Get Inputs
+    const fromInput = document.getElementById('searchFrom');
+    const toInput = document.getElementById('searchTo');
+
+    if (!fromInput || !toInput) {
+        console.error("Search inputs not found in DOM");
+        showToast("Error: Search inputs missing", "error");
+        return;
+    }
+
+    const from = fromInput.value;
+    const to = toInput.value;
+    console.log("Search Dates:", from, to);
+
+    // 2. Validation
+    if (!from || !to) {
+        showToast("Please select both From and To dates", "warning");
+        return;
+    }
+
+    if (new Date(from) > new Date(to)) {
+        showToast("From date cannot be after To date", "error");
+        return;
+    }
+
+    // 3. Find Container
+    let container = null;
+    if (targetId && typeof targetId === 'string' && document.getElementById(targetId)) {
         container = document.getElementById(targetId);
-    } else {
+    }
+
+    // Fallback detection
+    if (!container) {
+        console.warn("TargetID container not found, trying automatic detection...");
         const overlay = document.getElementById('moduleOverlay');
+        const activeModal = document.querySelector('.milk-overhaul-wrapper');
+
         if (overlay && overlay.classList.contains('active')) {
             container = document.getElementById('panelContent');
+        } else if (activeModal) {
+            // Try to find the parent container of the wrapper
+            container = activeModal.closest('#panelContent') || activeModal.closest('#categoryToolContainer') || activeModal.parentNode;
         } else {
             container = document.getElementById('categoryToolContainer');
         }
     }
 
-    if (container) renderMilkTracker(container, { from, to });
+    if (!container) {
+        console.error("CRITICAL: Container not found for rendering.");
+        showToast("System Error: Use refresh", "error");
+        return;
+    }
+
+    // 4. Render
+    try {
+        console.log("Rendering Milk Tracker with search:", { from, to });
+        await renderMilkTracker(container, { from, to });
+        console.log("Render call completed.");
+    } catch (e) {
+        console.error("Render failure:", e);
+        showToast("Search failed to render", "error");
+    }
 }
 
 function shiftMonth(delta, containerId) {

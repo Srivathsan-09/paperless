@@ -98,6 +98,27 @@ router.get('/', verifyToken, async (req, res) => {
     }
 });
 
+// @route   PUT /api/categories/:id
+// @desc    Update category (Rename)
+router.put('/:id', verifyToken, async (req, res) => {
+    try {
+        const { name } = req.body;
+        let category = await Category.findOne({ _id: req.params.id, userId: req.user._id });
+
+        if (!category) {
+            return res.status(404).json({ message: 'Category not found' });
+        }
+
+        if (name) category.name = name;
+
+        await category.save();
+        res.json(category);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   DELETE /api/categories/:id
 // @desc    Delete category and its entries
 router.delete('/:id', verifyToken, async (req, res) => {
