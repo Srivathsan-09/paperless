@@ -1227,7 +1227,7 @@ async function renderSpendingSummary(container) {
     let categoryTotals = [];
 
     try {
-        const parents = ['Daily Expenses', 'Utilities & Bills', 'Groceries', 'House Maintenance', 'Education', 'Health', 'Transportation', 'Occasional & Events', 'Subscriptions', 'Miscellaneous', 'Savings'];
+        const parents = ['Daily Expenses', 'Utilities & Bills', 'Groceries', 'House Maintenance', 'Education', 'Health', 'Transportation', 'Occasional & Events', 'Subscriptions', 'Miscellaneous'];
 
         // Fetch entries for all categories for the selected month
         const entriesResults = await Promise.all(parents.map(async p => {
@@ -1267,14 +1267,7 @@ async function renderSpendingSummary(container) {
                     <span class="ss-total-amount">₹${grandTotal.toLocaleString()}</span>
                 </div>
 
-                <div class="ss-category-summary">
-                     ${categoryTotals.length > 0 ? categoryTotals.map(c => `
-                        <div class="ss-cat-row">
-                            <span>${c.name}</span>
-                            <span>₹${c.amount.toLocaleString()}</span>
-                        </div>
-                     `).join('') : '<p style="color: var(--text-muted);">No spending yet.</p>'}
-                </div>
+
 
                 <div class="ss-history-section">
                     <h3 class="ss-section-title">Detailed Transaction History</h3>
