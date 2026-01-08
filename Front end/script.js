@@ -38,7 +38,9 @@ const STATE = {
         'events': ['Festivals', 'Birthdays', 'Wedding/Parties'],
         'subscriptions': ['OTT Apps (Netflix/Prime)', 'Gym Membership', 'Insurance Premiums'],
         'misc': ['Small Spends', 'General Expense', 'Others']
-    }
+    },
+    isLeaf: false,
+    isAutoOpened: false
 };
 
 const SUB_ICONS = {
@@ -543,16 +545,10 @@ async function addEntry(entry) {
         STATE.needsRefresh = true; // Signal reset for UI refresh
 
         // FIX: Force immediate refresh of background grid if visible
-        // This ensures "Recent Expenses" updates instantly even while modal is open
-        if (STATE.view === 'subcategories' && STATE.activeCategory) {
-            // Check if overlay is active, if so, only refresh background if safe
-            // Ideally, we re-fetch recent expenses and update the list DOM directly
-            // But openCategory re-renders the whole main view.
-            // Since overlay is likely outside main, this is safe and updates the background.
-            // We use a timeout to let the toast appear first or slightly async
+        // Only if it's NOT a leaf category to avoid redundant DOM wipes
+        if (STATE.view === 'subcategories' && STATE.activeCategory && !STATE.isLeaf) {
             setTimeout(() => {
                 const overlay = document.getElementById('moduleOverlay');
-                // Only if overlay is separate from main content
                 if (overlay && document.body.contains(overlay)) {
                     openCategory(STATE.activeCategory, true);
                 }
@@ -922,10 +918,12 @@ async function renderDashboard() {
 
 
 
-async function openCategory(id, keepOverlayOpen = false) {
-    STATE.view = 'subcategories';
-    STATE.activeCategory = id;
-    STATE.activeSubcategory = null;
+async function openCategory(id, isBackgroundRefresh = false) {
+    if (!isBackgroundRefresh) {
+        STATE.view = 'subcategories';
+        STATE.activeCategory = id;
+        STATE.activeSubcategory = null;
+    }
 
     // Standardize IDs for special categories
     if (id === 'miscellaneous') {
@@ -981,10 +979,18 @@ async function openCategory(id, keepOverlayOpen = false) {
     }
 
     // Logic to auto-open module if no subcategories, BUT skip for Misc/Savings to view grid
-    if (subs.length === 0 && cat.name !== 'Miscellaneous' && cat.name !== 'Savings') {
+    // Also skip if this is a background refresh to prevent re-opening modal
+    const isLeaf = subs.length === 0 && cat.name !== 'Miscellaneous' && cat.name !== 'Savings';
+    STATE.isLeaf = isLeaf;
+
+    if (isLeaf && !isBackgroundRefresh) {
+        STATE.isAutoOpened = true;
         openModule(cat.name, cat._id || cat.id);
         return;
     }
+
+    // If not auto-opening, reset flag
+    if (!isBackgroundRefresh) STATE.isAutoOpened = false;
 
     // Fetch Recent Expenses for this category (Grid view)
     let recentExpenses = [];
@@ -1004,7 +1010,7 @@ async function openCategory(id, keepOverlayOpen = false) {
 
     // Safety Net: Ensure Overlay is CLOSED when viewing a main category grid
     const overlay = document.getElementById('moduleOverlay');
-    if (overlay && !keepOverlayOpen) {
+    if (overlay && !isBackgroundRefresh) {
         overlay.classList.remove('active');
         overlay.classList.remove('drawer-mode');
         // Clear panel content to ensure no ID conflicts or ghost content
@@ -1119,17 +1125,23 @@ function closeModule(fallbackId) {
     }
 
     // Explicit fallback if provided (Robust navigation)
-    // Trim string 'undefined' or 'null' just in case
     if (fallbackId && fallbackId !== 'undefined' && fallbackId !== 'null') {
         openCategory(fallbackId);
+        return;
+    }
+
+    // FIX: If we auto-opened a leaf category, closing it should go to dashboard
+    if (STATE.isAutoOpened) {
+        STATE.isAutoOpened = false;
+        STATE.needsRefresh = false; // Fresh dashboard will have new totals
+        renderDashboard();
         return;
     }
 
     // FIX: If we need refresh (e.g. added entry), reload current category if active
     if (STATE.needsRefresh && STATE.activeCategory) {
         STATE.needsRefresh = false;
-        // Force reload of current category to update "Recent Expenses"
-        openCategory(STATE.activeCategory);
+        openCategory(STATE.activeCategory, true);
         return;
     }
 
@@ -1428,7 +1440,10 @@ async function renderGenericForm(container, subName, categoryId, customBackActio
 
         const success = await addEntry(entry);
         if (success) {
-            renderGenericForm(container, subName, categoryId, onBackAction, hideHistory);
+            // Small delay to ensure DB sync and forced fresh fetch
+            setTimeout(() => {
+                renderGenericForm(container, subName, categoryId, onBack, hideHistory);
+            }, 200);
         }
     });
 }
@@ -1438,7 +1453,7 @@ async function renderSubcategoryHistory(container, subName, categoryId) {
     const monthStr = `${STATE.selectedYear}-${String(STATE.selectedMonth + 1).padStart(2, '0')}`;
     let history = [];
     try {
-        history = await fetchAPI(`/api/entries?categoryId=${categoryId}&month=${monthStr}`);
+        history = await fetchAPI(`/api/entries?categoryId=${categoryId}&month=${monthStr}&_t=${Date.now()}`);
         // Sort by Date Ascending
         history.sort((a, b) => new Date(a.date) - new Date(b.date));
     } catch (e) { console.error(e); }
@@ -2750,7 +2765,7 @@ async function renderSubcategoryView(container, parentName) {
     let recentEntries = [];
     try {
         const monthStr = `${STATE.selectedYear}-${String(STATE.selectedMonth + 1).padStart(2, '0')}`;
-        recentEntries = await fetchAPI(`/api/entries?parentCategory=${encodeURIComponent(parentName)}&month=${monthStr}`);
+        recentEntries = await fetchAPI(`/api/entries?parentCategory=${encodeURIComponent(parentName)}&month=${monthStr}&_t=${Date.now()}`);
     } catch (e) { console.error(e); }
 
     container.innerHTML = `
