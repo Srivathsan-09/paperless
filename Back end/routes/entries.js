@@ -136,6 +136,19 @@ router.get('/', verifyToken, async (req, res) => {
             return res.json(entries);
         }
 
+        // Add support for fetching ALL entries for a month (used by Dashboard Summary)
+        if (month && !categoryId && !type && !parentCategory) {
+            const parts = month.split('-');
+            const yearNum = parseInt(parts[0]);
+            const monthNum = parseInt(parts[1]) - 1;
+            const startDate = new Date(Date.UTC(yearNum, monthNum, 1));
+            const endDate = new Date(Date.UTC(yearNum, monthNum + 1, 0, 23, 59, 59, 999));
+            query.date = { $gte: startDate, $lte: endDate };
+
+            const entries = await Entry.find(query).sort({ date: -1 });
+            return res.json(entries);
+        }
+
         res.status(400).json({ message: 'Invalid query parameters' });
     } catch (err) {
         console.error(err.message);

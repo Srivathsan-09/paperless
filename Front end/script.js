@@ -83,7 +83,7 @@ function getSubIconHelper(name) {
     // We assume the sprite has these. If not, they might show blank.
     // Safest bet is to map to categories' icons if unsure, but let's try specific ones.
     // 'droplet' might need to be added to index.html if missing.
-    return SUB_ICONS[name] || 'circle';
+    return SUB_ICONS[name] || 'more-horizontal';
 }
 
 // --- PERSISTENCE ---
@@ -608,6 +608,7 @@ async function deleteCategory(catId) {
     if (confirmed) {
         try {
             await fetchAPI(`/api/categories/${catId}`, { method: 'DELETE' });
+            showToast('Category deleted', 'success');
 
             // Context-aware refresh
             // Refresh the view
@@ -618,7 +619,7 @@ async function deleteCategory(catId) {
             }
 
         } catch (err) {
-            alert('Delete failed: ' + err.message);
+            showToast('Delete failed: ' + err.message, 'error');
         }
     }
 }
@@ -632,6 +633,7 @@ async function deleteSubcategory(catId, subName) {
         // Also remove any data entries associated with this subcategory
         STATE.data = STATE.data.filter(d => !(d.category === catId && d.subCategory === subName));
         saveState();
+        showToast('Subcategory deleted', 'success');
         openCategory(catId);
     }
 }
@@ -862,10 +864,9 @@ async function renderDashboard() {
     let totalMonth = 0;
     try {
         const monthStr = `${STATE.selectedYear}-${String(STATE.selectedMonth + 1).padStart(2, '0')}`;
-        // Since we don't have a direct total endpoint, sum all parents
-        const parents = ['Daily Expenses', 'Utilities & Bills', 'Groceries', 'House Maintenance', 'Education', 'Health', 'Transportation', 'Occasional & Events', 'Subscriptions', 'Miscellaneous', 'Savings'];
-        const results = await Promise.all(parents.map(p => fetchAPI(`/api/entries?parentCategory=${encodeURIComponent(p)}&month=${monthStr}`)));
-        totalMonth = results.flat().reduce((sum, d) => sum + d.amount, 0);
+        // Optimization: Use the new all-entries endpoint
+        const allEntries = await fetchAPI(`/api/entries?month=${monthStr}`);
+        totalMonth = allEntries.reduce((sum, d) => sum + d.amount, 0);
     } catch (e) { console.error(e); }
 
 
@@ -923,6 +924,8 @@ async function openCategory(id, isBackgroundRefresh = false) {
         STATE.view = 'subcategories';
         STATE.activeCategory = id;
         STATE.activeSubcategory = null;
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) mainContent.classList.remove('dashboard-view');
     }
 
     // Standardize IDs for special categories
@@ -1023,13 +1026,24 @@ async function openCategory(id, isBackgroundRefresh = false) {
     if (toolContainer) toolContainer.style.display = 'block';
 
     main.innerHTML = `
-        <div class="overhaul-header desktop-only" style="margin-bottom: 1.5rem;">
+        <div class="overhaul-header">
+            <!-- Mobile Back Button (Far Left) -->
+            <button class="icon-btn mobile-only" onclick="renderDashboard()" style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; z-index: 10; color: var(--primary) !important;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+
             <div class="overhaul-tabs-row">
-                <button class="back-btn-v3 desktop-only" onclick="renderDashboard()" style="left: 0.7rem;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
-                    Back
-                </button>
-                <h2 class="category-title" style="margin: 0;">${cat.name}</h2>
+                <div class="header-left-col">
+                    <!-- Desktop Back Button -->
+                    <button class="back-btn-v3 desktop-only" onclick="renderDashboard()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+                        Back
+                    </button>
+                </div>
+                <div class="header-center-col">
+                    <h2 class="category-title" style="margin: 0;">${cat.name}</h2>
+                </div>
+                <div class="header-right-col"></div>
             </div>
         </div>
         
@@ -1239,23 +1253,28 @@ async function renderSpendingSummary(container) {
     let categoryTotals = [];
 
     try {
-        const parents = ['Daily Expenses', 'Utilities & Bills', 'Groceries', 'House Maintenance', 'Education', 'Health', 'Transportation', 'Occasional & Events', 'Subscriptions', 'Miscellaneous'];
+        // Optimization: Use the new all-entries endpoint to fetch everything for the given month
+        allEntries = await fetchAPI(`/api/entries?month=${monthStr}`);
 
-        // Fetch entries for all categories for the selected month
-        const entriesResults = await Promise.all(parents.map(async p => {
-            const entries = await fetchAPI(`/api/entries?parentCategory=${encodeURIComponent(p)}&month=${monthStr}`);
-            return entries.map(e => ({ ...e, categoryName: p }));
-        }));
+        // Sort for the history view
+        allEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        allEntries = entriesResults.flat().sort((a, b) => new Date(a.date) - new Date(b.date));
         console.log("Debug: Spending Summary Entries", allEntries);
         grandTotal = allEntries.reduce((sum, e) => sum + e.amount, 0);
 
-        // Calculate totals per parent category for the chart
-        categoryTotals = parents.map((p, i) => {
-            const total = entriesResults[i].reduce((sum, e) => sum + e.amount, 0);
-            return { name: p, amount: total };
-        }).filter(c => c.amount > 0).sort((a, b) => b.amount - a.amount);
+        // Calculate totals per parent category (dynamically)
+        const categoriesMap = {};
+        allEntries.forEach(e => {
+            // We need to find the parent category for this entry
+            const cat = STATE.categories.find(c => c._id === e.categoryId);
+            const parent = cat ? cat.parentCategory : 'Other';
+            categoriesMap[parent] = (categoriesMap[parent] || 0) + e.amount;
+            // Inject parent name for the transaction row display
+            e.categoryName = parent;
+        });
+
+        categoryTotals = Object.entries(categoriesMap).map(([name, amount]) => ({ name, amount }))
+            .sort((a, b) => b.amount - a.amount);
 
     } catch (e) { console.error(e); }
 
@@ -1499,6 +1518,7 @@ async function deleteEntry(id, subName, categoryId) {
     if (confirmed) {
         try {
             await fetchAPI(`/api/entries/${id}`, { method: 'DELETE' });
+            showToast('Deleted successfully', 'success');
             // Refresh current view
             const overlay = document.getElementById('moduleOverlay');
             const isOverlay = overlay && overlay.classList.contains('active');
@@ -1521,7 +1541,7 @@ async function deleteEntry(id, subName, categoryId) {
                 renderGenericForm(container, subName, categoryId, contextBack);
             }
         } catch (err) {
-            alert('Delete failed: ' + err.message);
+            showToast('Delete failed: ' + err.message, 'error');
         }
     }
 }
@@ -1532,9 +1552,10 @@ async function deleteCategoryEntry(id, categoryId) {
     if (confirmed) {
         try {
             await fetchAPI(`/api/entries/${id}`, { method: 'DELETE' });
+            showToast('Deleted successfully', 'success');
             openCategory(categoryId);
         } catch (err) {
-            alert('Delete failed: ' + err.message);
+            showToast('Delete failed: ' + err.message, 'error');
         }
     }
 }
@@ -1642,35 +1663,41 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
             <div class="milk-overhaul-wrapper">
 
             <div class="overhaul-header" style="${window.innerWidth <= 768 ? 'margin-bottom: 0.5rem;' : ''}">
+                <!-- Mobile Back Button (Far Left) -->
+                <button class="icon-btn mobile-only" onclick="renderDashboard()" style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; z-index: 10; color: var(--primary) !important;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+
                 <div class="overhaul-tabs-row">
-                    <!-- Desktop Back Button -->
-                    <button class="back-btn-v3 desktop-only" onclick="renderDashboard()" style="left: -0.8rem;">
-                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
-                         Back
-                    </button>
-
-                    <!-- Mobile Back Button (Icon only, left of tabs) -->
-                    <button class="icon-btn mobile-only" onclick="renderDashboard()" style="margin-right: 0.5rem; width: 36px; height: 36px;">
-                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                    </button>
-
-                    <div class="tab-group v3">
-                        <button class="tab-btn ${STATE.milkSubView === 'calendar' ? 'active' : ''}" onclick="STATE.milkSubView='calendar'; renderMilkTracker(document.getElementById('${targetId}'))">
-                            <svg class="desktop-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                            Calendar
-                        </button>
-                        <button class="tab-btn ${STATE.milkSubView === 'analysis' ? 'active' : ''}" onclick="STATE.milkSubView='analysis'; renderMilkTracker(document.getElementById('${targetId}'))">
-                            <svg class="desktop-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                            Analysis
+                    <div class="header-left-col">
+                        <!-- Desktop Back Button -->
+                        <button class="back-btn-v3 desktop-only" onclick="renderDashboard()">
+                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+                             Back
                         </button>
                     </div>
+
+                    <div class="header-center-col">
+                        <div class="tab-group v3">
+                            <button class="tab-btn ${STATE.milkSubView === 'calendar' ? 'active' : ''}" onclick="STATE.milkSubView='calendar'; renderMilkTracker(document.getElementById('${targetId}'))">
+                                <svg class="desktop-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                Calendar
+                            </button>
+                            <button class="tab-btn ${STATE.milkSubView === 'analysis' ? 'active' : ''}" onclick="STATE.milkSubView='analysis'; renderMilkTracker(document.getElementById('${targetId}'))">
+                                <svg class="desktop-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                                Analysis
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="header-right-col"></div>
                 </div>
             </div>
 
             <div class="overhaul-main-card">
                 <div class="overhaul-top-nav" style="${STATE.milkSubView === 'analysis' ? 'display: none;' : ''}">
                     <!-- Month Selector (Left) -->
-                    <div class="milk-month-pill" style="${searchRange ? 'visibility: hidden;' : ''}">
+                    <div class="milk-month-pill">
                         <button class="milk-nav-arrow" onclick="navMonth(-1)">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                         </button>
@@ -2399,17 +2426,7 @@ function closeMonthPicker() {
 // --- UTILS & HELPERS ---
 
 function getRelativeDate(dateString) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     const date = new Date(dateString);
-    date.setHours(0, 0, 0, 0);
-
-    const diffTime = today - date;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
@@ -2526,7 +2543,7 @@ async function exportToPDF() {
 
         } else {
             // --- GLOBAL EXPORT (All Categories) ---
-            const parents = ['Daily Expenses', 'Utilities & Bills', 'Groceries', 'House Maintenance', 'Education', 'Health', 'Transportation', 'Occasional & Events', 'Subscriptions', 'Miscellaneous'];
+            const parents = ['Daily Expenses', 'Utilities & Bills', 'Groceries', 'House Maintenance', 'Education', 'Health', 'Transportation', 'Occasional & Events', 'Subscriptions', 'Miscellaneous', 'Savings', 'Milk'];
             const entriesResults = await Promise.all(parents.map(async p => {
                 return await fetchAPI(`/api/entries?parentCategory=${encodeURIComponent(p)}&month=${monthStr}`);
             }));
@@ -2770,8 +2787,11 @@ async function renderSubcategoryView(container, parentName) {
 
     container.innerHTML = `
         <div class="panel-header">
-            <button class="close-circle" onclick="closeModule()">
+            <button class="close-circle desktop-only" onclick="closeModule()">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <button class="icon-btn mobile-only" onclick="renderDashboard()" style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; z-index: 10; color: var(--primary) !important;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </button>
             <h3>${parentName}</h3>
             <div></div> <!-- Grid Spacer -->
