@@ -31,13 +31,15 @@ router.get(
         passport.authenticate('google', { session: false }, (err, user, info) => {
             if (err) {
                 console.error('Google Auth Error:', err);
-                return res.redirect('/Loginpage.html?error=server_error');
+                const frontendUrl = process.env.FRONTEND_URL || '';
+                return res.redirect(`${frontendUrl}/Loginpage.html?error=server_error`);
             }
             if (!user) {
                 // info might contain the message we set in passport.js
                 const message = info ? info.message : 'Authentication failed';
                 console.log('Auth failed message:', message);
-                return res.redirect(`/Loginpage.html?error=${encodeURIComponent(message)}`);
+                const frontendUrl = process.env.FRONTEND_URL || '';
+                return res.redirect(`${frontendUrl}/Loginpage.html?error=${encodeURIComponent(message)}`);
             }
 
             // If user found, proceed to generate token
@@ -48,14 +50,16 @@ router.get(
                     { expiresIn: '7d' }
                 );
 
-                let redirectUrl = `/home.html?token=${token}&success=true`;
+                const frontendUrl = process.env.FRONTEND_URL || '';
+                let redirectUrl = `${frontendUrl}/home.html?token=${token}&success=true`;
                 if (user.isNewUser) {
                     redirectUrl += '&isNewUser=true';
                 }
                 res.redirect(redirectUrl);
             } catch (error) {
                 console.error('Token generation error:', error);
-                res.redirect('/Loginpage.html?error=token_error');
+                const frontendUrl = process.env.FRONTEND_URL || '';
+                res.redirect(`${frontendUrl}/Loginpage.html?error=token_error`);
             }
         })(req, res, next);
     }
