@@ -484,7 +484,7 @@ function checkAuth() {
 }
 
 const currentPage = window.location.pathname.split('/').pop() || 'index.html';
-const isAuthPage = currentPage === 'Loginpage.html' || currentPage === 'index.html';
+const isAuthPage = currentPage === 'index.html' || currentPage === '';
 
 
 if (!checkAuth() && !isAuthPage) {
