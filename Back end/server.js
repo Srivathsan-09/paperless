@@ -5,6 +5,14 @@ const passport = require('passport');
 const path = require('path');
 const connectDB = require('./config/db');
 
+// Validate environment variables
+const requiredEnv = ['MONGODB_URI', 'JWT_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+const missingEnv = requiredEnv.filter(env => !process.env[env]);
+if (missingEnv.length > 0) {
+    console.error(`❌ Missing required environment variables: ${missingEnv.join(', ')}`);
+    process.exit(1);
+}
+
 // Initialize Express app
 const app = express();
 
@@ -14,9 +22,12 @@ connectDB();
 // Initialize Passport configuration
 require('./config/passport')(passport);
 
+// Normalize Frontend URL (remove trailing slash)
+const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+
 // Middleware
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'https://personalpaperless.netlify.app/',
+    origin: frontendUrl,
     credentials: true,
 }));
 
@@ -52,9 +63,9 @@ app.get('/api/user/profile', verifyToken, (req, res) => {
 });
 
 
-// Root route - Redirect or serve index.html
+// Root route - Redirect or serve Loginpage.html
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../Front end', 'index.html'));
+    res.sendFile(path.join(__dirname, '../Front end', 'Loginpage.html'));
 });
 
 
@@ -78,11 +89,8 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-const API_URL = process.env.API_URL || `http://localhost:${PORT}`;
-
 app.listen(PORT, () => {
     console.log(`\n🚀 Server running on port ${PORT}`);
-    console.log(`📍 API URL:      ${API_URL}`);
-    console.log(`🌐 Frontend URL:  ${process.env.FRONTEND_URL || API_URL}`);
-    console.log(`🔐 Google OAuth: ${API_URL}/auth/google\n`);
+    console.log(`📍 API URL: http://localhost:${PORT}`);
+    console.log(`🔐 Google OAuth: http://localhost:${PORT}/auth/google\n`);
 });

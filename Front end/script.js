@@ -228,10 +228,7 @@ const HeaderManager = {
                 </button>
             `;
 
-            // On mobile, often hide name/selector if we have back
-            if (isMobile) {
-                if (monthTrigger) monthTrigger.style.visibility = 'hidden';
-            }
+            // Removed unconditional hiding of month selector on mobile
         }
 
         // 3. Sub Content (Tabs/etc)
@@ -439,10 +436,24 @@ function checkAuth() {
     const urlToken = urlParams.get('token');
     if (urlToken) {
         localStorage.setItem('authToken', urlToken);
-        // Set flag for success screen
-        sessionStorage.setItem('justLoggedIn', 'true');
+        STATE.isLoggedIn = true;
+        const isNewUser = urlParams.get('isNewUser');
+        const isSuccess = urlParams.get('success');
+
         // Clean URL to remove token for security and aesthetics
         window.history.replaceState({}, document.title, window.location.pathname);
+
+        if (isNewUser === 'true') {
+            sessionStorage.setItem('isNewUser', 'true');
+            window.location.href = 'get-started.html';
+            return true;
+        }
+
+        if (isSuccess === 'true') {
+            sessionStorage.setItem('loginJustCompleted', 'true');
+            window.location.href = 'success.html';
+            return true;
+        }
     }
 
     const urlError = urlParams.get('error');
@@ -488,7 +499,7 @@ const isAuthPage = currentPage === 'Loginpage.html';
 if (!checkAuth() && !isAuthPage) {
     window.location.href = 'Loginpage.html';
 } else if (STATE.isLoggedIn && isAuthPage) {
-    // If already logged in and on Login Page, go to home
+    // If already logged in and on Login Page, go to dashboard
     window.location.href = 'index.html';
 }
 
@@ -846,7 +857,10 @@ async function renderDashboard() {
     STATE.view = 'dashboard';
     STATE.activeCategory = null;
     STATE.activeSubcategory = null;
+    STATE.activeCategory = null;
+    STATE.activeSubcategory = null;
     const main = document.getElementById('mainContent');
+    // REMOVED immediate class reset to prevent jump
 
     // Unified Header Update
     HeaderManager.update({ showBack: false });
@@ -888,6 +902,10 @@ async function renderDashboard() {
         const milkCat = dashboardList.splice(milkIdx, 1)[0];
         dashboardList.unshift(milkCat);
     }
+
+    // Apply dashboard view classes NOW, just before rendering
+    main.className = 'view-container dashboard-view';
+    main.classList.remove('milk-view'); // Explicitly cleanup
 
     main.innerHTML = `
         <div class="category-grid">
@@ -931,8 +949,6 @@ async function openCategory(id, isBackgroundRefresh = false) {
         STATE.view = 'subcategories';
         STATE.activeCategory = id;
         STATE.activeSubcategory = null;
-        const mainContent = document.getElementById('mainContent');
-        if (mainContent) mainContent.classList.remove('dashboard-view');
     }
 
     // Standardize IDs for special categories
@@ -943,9 +959,15 @@ async function openCategory(id, isBackgroundRefresh = false) {
         }
     }
     if (id === 'savings') {
-        const existing = STATE.categories.find(c => c.id === 'savings');
+        const existing = STATE.categories.find(c => c.id === 'savings' || c.name === 'Savings');
         if (!existing) {
             STATE.categories.push({ name: 'Savings', id: 'savings', _id: 'savings', icon: 'more-horizontal' });
+        }
+    }
+    if (id === 'milk' || id === 'Milk') {
+        const existing = STATE.categories.find(c => c.name === 'Milk' || c.id === 'milk');
+        if (!existing) {
+            STATE.categories.push({ name: 'Milk', id: 'milk', icon: 'truck', type: 'milk' });
         }
     }
 
@@ -967,7 +989,7 @@ async function openCategory(id, isBackgroundRefresh = false) {
     HeaderManager.update({
         showBack: true,
         onBack: "renderDashboard()",
-        hideMonthSelector: isMobile && (cat.name !== 'Milk' && cat.type !== 'milk')
+        hideMonthSelector: isMobile && !['Milk', 'Savings', 'Miscellaneous'].includes(cat.name) && cat.type !== 'milk'
     });
 
     // Fetch items/subcategories for this category
@@ -983,7 +1005,11 @@ async function openCategory(id, isBackgroundRefresh = false) {
         STATE.view = 'milkTracker'; // Set view for milk tracker
         const toolContainer = document.getElementById('categoryToolContainer') || main;
         // Clear main if we're rendering there
-        if (toolContainer === main) main.innerHTML = '<div id="categoryToolContainer"></div>';
+        if (toolContainer === main) {
+            main.innerHTML = '<div id="categoryToolContainer"></div>';
+            main.classList.remove('dashboard-view');
+            main.classList.add('milk-view');
+        }
         await renderMilkTracker(document.getElementById('categoryToolContainer'));
         return;
     }
@@ -1015,7 +1041,7 @@ async function openCategory(id, isBackgroundRefresh = false) {
     HeaderManager.update({
         showBack: isMobile,
         onBack: 'renderDashboard',
-        hideMonthSelector: isMobile && cat.name !== 'Milk' // Simplify on mobile
+        hideMonthSelector: isMobile && !['Milk', 'Savings', 'Miscellaneous'].includes(cat.name)
     });
 
     // Safety Net: Ensure Overlay is CLOSED when viewing a main category grid
@@ -1031,6 +1057,11 @@ async function openCategory(id, isBackgroundRefresh = false) {
     // Explicitly target the main tool container
     const toolContainer = document.getElementById('categoryToolContainer') || document.getElementById('mainContent');
     if (toolContainer) toolContainer.style.display = 'block';
+
+    if (main) {
+        main.classList.remove('dashboard-view');
+        main.classList.remove('milk-view');
+    }
 
     main.innerHTML = `
         <div class="category-overhaul-wrapper">
@@ -1332,25 +1363,32 @@ async function renderSpendingSummary(container) {
 }
 
 function handleSummaryClick(parentName, categoryId, itemName) {
-    if (parentName === 'Savings' || parentName === 'Miscellaneous') {
-        // Redirect to full page grid view
+    if (parentName === 'Savings' || parentName === 'Miscellaneous' || parentName === 'Milk' || itemName === 'Milk') {
         const overlay = document.getElementById('moduleOverlay');
         if (overlay) {
             overlay.classList.remove('active');
             overlay.classList.remove('drawer-mode');
         }
 
-        // Close module state properly
         STATE.activeSubcategory = null;
 
-        // Route to standardized IDs
-        const targetId = parentName === 'Savings' ? 'savings' : 'miscellaneous';
-        openCategory(targetId);
+        // Resolve targetId robustly
+        let targetId = categoryId;
+        if (parentName === 'Savings') targetId = 'savings';
+        else if (parentName === 'Miscellaneous') targetId = 'miscellaneous';
+        else if (parentName === 'Milk' || itemName === 'Milk' || parentName === 'milk' || itemName === 'milk') {
+            targetId = 'milk';
+        }
+
+        // Use a slightly longer delay and ensure drawer mode is removed for clean transition
+        setTimeout(() => {
+            const overlay = document.getElementById('moduleOverlay');
+            if (overlay) overlay.classList.remove('drawer-mode');
+            openCategory(targetId);
+        }, 250); // 250ms delay for smoothness
     } else {
-        // Default behavior: Open module in overlay (Use itemName if available as it represents the sub-item)
         const overlay = document.getElementById('moduleOverlay');
         if (overlay) overlay.classList.remove('drawer-mode');
-
         openModule(itemName || parentName, categoryId);
     }
 }
@@ -1786,10 +1824,6 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
                                         <span class="l">TOTAL LITRES</span>
                                         <span class="v" id="yTotalLitres">0.0 L</span>
                                     </div>
-                                    <div class="y-stat">
-                                        <span class="l">MONTHLY AVG</span>
-                                        <span class="v" id="yMonthlyAvg">₹0</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1807,20 +1841,11 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
                             <div class="stats-boxes-grid">
                                 <div class="stat-box-large">
                                     <div class="icon-circle">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
                                     </div>
                                     <div class="box-info">
                                         <span class="box-label">TOTAL LITRES</span>
                                         <span class="box-value">${milkStats.totalLitres.toFixed(1)} L</span>
-                                    </div>
-                                </div>
-                                <div class="stat-box-large">
-                                    <div class="icon-circle">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line><line x1="8" y1="18" x2="16" y2="18"></line></svg>
-                                    </div>
-                                    <div class="box-info">
-                                        <span class="box-label">AVG / DAY</span>
-                                        <span class="box-value">₹${milkStats.averageSpend.toFixed(2)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -1991,8 +2016,6 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
             document.getElementById('yTotalSpent').textContent = `₹${yearlyTotalAmount.toLocaleString()}`;
             document.getElementById('yTotalLitres').textContent = `${yearlyTotalLitres.toFixed(1)}L`;
             const activeMonths = monthStats.filter(m => m.amount > 0).length;
-            const avg = activeMonths > 0 ? yearlyTotalAmount / 12 : 0;
-            document.getElementById('yMonthlyAvg').textContent = `₹${avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
         } catch (e) { console.error("Error fetching yearly stats:", e); }
     }
@@ -2637,7 +2660,7 @@ function toggleAuthMode(e) {
         if (authTitle) authTitle.textContent = 'Sign Up';
 
         if (googleAuthBtn) {
-            googleAuthBtn.href = 'https://paperless-rdsq.onrender.com/auth/google?mode=signup';
+            googleAuthBtn.href = '/auth/google?mode=signup';
             if (googleBtnText) googleBtnText.textContent = 'Continue with Google';
         }
 
@@ -2648,7 +2671,7 @@ function toggleAuthMode(e) {
         if (authTitle) authTitle.textContent = 'Login';
 
         if (googleAuthBtn) {
-            googleAuthBtn.href = 'https://paperless-rdsq.onrender.com/auth/google?mode=login';
+            googleAuthBtn.href = '/auth/google?mode=login';
             if (googleBtnText) googleBtnText.textContent = 'Continue with Google';
         }
 
@@ -2688,33 +2711,8 @@ function showSuccessLogo() {
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- AUTH TOKEN HANDLING ---
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const isSuccess = urlParams.get('success');
-    const isNewUser = urlParams.get('isNewUser');
-
-    if (token) {
-        // Store token appropriately
-        localStorage.setItem('authToken', token);
-        STATE.isLoggedIn = true;
-        saveState();
-
-        // Remove token from URL for cleaner look (optional, but good practice)
-        window.history.replaceState({}, document.title, window.location.pathname);
-
-        if (isNewUser === 'true') {
-            sessionStorage.setItem('isNewUser', 'true');
-            window.location.href = 'get-started.html';
-            return;
-        }
-
-        if (isSuccess === 'true') {
-            showSuccessLogo();
-        } else {
-            window.location.href = 'index.html';
-        }
-        return; // Stop further initialization on this page if redirecting
-    }
+    // URL params are now handled in checkAuth() at the top of the file
+    // to ensure they are captured before URL cleaning and to handle initial redirects.
 
     // Only initialize dashboard elements if they exist
     const monthPickerTrigger = document.getElementById('monthPickerTrigger');
@@ -2731,8 +2729,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const exportBtn = document.getElementById('exportPDF');
         if (exportBtn) exportBtn.addEventListener('click', exportToPDF);
 
-        // Initial render if on home
-        if (currentPage === 'index.html') {
+        // Initial render if on home or index (as it is the new home)
+        if (currentPage === 'home.html' || currentPage === 'index.html') {
             renderDashboard();
         }
     }

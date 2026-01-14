@@ -48,16 +48,14 @@ router.get(
                     { expiresIn: '7d' }
                 );
 
-                const frontendUrl = process.env.FRONTEND_URL || '';
-                let redirectUrl = `${frontendUrl}/index.html?token=${token}&success=true`;
+                let redirectUrl = `/index.html?token=${token}&success=true`;
                 if (user.isNewUser) {
                     redirectUrl += '&isNewUser=true';
                 }
                 res.redirect(redirectUrl);
             } catch (error) {
                 console.error('Token generation error:', error);
-                const frontendUrl = process.env.FRONTEND_URL || '';
-                res.redirect(`${frontendUrl}/Loginpage.html?error=token_error`);
+                res.redirect('/Loginpage.html?error=token_error');
             }
         })(req, res, next);
     }

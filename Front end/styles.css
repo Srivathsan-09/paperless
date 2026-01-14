@@ -487,9 +487,38 @@ body::after {
     z-index: 1;
 }
 
-/* Home Page Specific Gap */
-.view-container.dashboard-view {
+/* Unified Gap for all views on desktop */
+.view-container {
     padding-top: 2rem !important;
+}
+
+@media (min-width: 769px) {
+    .view-container {
+        padding-top: 4rem !important;
+    }
+
+    .view-container.milk-view {
+        padding-top: 1rem !important;
+        /* More aggressive lift for milk tracker */
+    }
+
+    .view-container.milk-view .category-overhaul-wrapper {
+        max-width: 1700px;
+        /* Increase width for milk calendar */
+    }
+
+    /* Force Grid Expansion in Milk View */
+    .view-container.milk-view .milk-calendar-grid.v3 {
+        width: 100% !important;
+        grid-template-columns: repeat(7, 1fr) !important;
+    }
+
+    .view-container.milk-view .day-card.overhaul {
+        width: 100% !important;
+        min-width: 140px !important;
+        /* Force wider cards */
+        box-sizing: border-box;
+    }
 }
 
 @media (max-width: 768px) {
@@ -904,13 +933,17 @@ h3,
     background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(8px);
     z-index: 20000;
-    display: none;
+    display: flex;
+    /* Use flex but hide with opacity */
+    opacity: 0;
+    visibility: hidden;
     align-items: center;
     /* Centered vertically */
     justify-content: center;
     /* Centered horizontally */
     padding: 20px;
     overflow-y: auto;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 #moduleOverlay::-webkit-scrollbar {
@@ -918,7 +951,8 @@ h3,
 }
 
 #moduleOverlay.active {
-    display: flex;
+    opacity: 1;
+    visibility: visible;
 }
 
 .panel-content {
@@ -1458,6 +1492,11 @@ textarea:focus {
     /* Balanced vertical margin */
 }
 
+/* Specific Lift for Milk View */
+.milk-view .overhaul-header {
+    margin: 0.5rem 0 1rem 0 !important;
+}
+
 .overhaul-tabs-row {
     width: 100%;
     display: grid;
@@ -1533,9 +1572,8 @@ textarea:focus {
     display: flex;
     align-items: center;
     background: var(--card-bg);
-    padding: 0.35rem 0.25rem 0.25rem 0.25rem;
-    border-radius: 14px;
-    /* Slightly tighter radius */
+    padding: 0.4rem;
+    border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     gap: 0.5rem;
     border: 1px solid var(--border);
@@ -1544,7 +1582,7 @@ textarea:focus {
 }
 
 .tab-group.v3 .tab-btn {
-    padding: 0.5rem 1.75rem;
+    padding: 0.8rem 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1586,7 +1624,7 @@ textarea:focus {
 /* Base Overhaul Layout */
 .overhaul-grid {
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: 1fr 320px;
     gap: 1.5rem;
     align-items: start;
 }
@@ -2131,8 +2169,7 @@ textarea:focus {
 .summary-column.v3 {
     padding-left: 1.5rem;
     border-left: 1px solid var(--border);
-    width: 300px;
-    /* Reduced from 340px */
+    width: 320px;
     flex-shrink: 0;
 }
 
@@ -2157,8 +2194,8 @@ textarea:focus {
 }
 
 .grand-total-display.v3 .amount {
-    font-size: 3.5rem;
-    /* Even bigger as per image 2 */
+    font-size: 3rem;
+    /* Reduced from 3.5rem */
     font-weight: 900;
     line-height: 1;
 }
@@ -2173,7 +2210,7 @@ textarea:focus {
 
 .stats-boxes-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 1rem;
     margin-bottom: 1.5rem;
 }
@@ -2181,25 +2218,24 @@ textarea:focus {
 .stat-box-large {
     background: var(--primary-light);
     padding: 1.25rem 1rem;
-    /* Reduced padding */
     border-radius: 20px;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    justify-content: center;
+    gap: 2rem;
     /* Reduced gap */
     border: none;
     flex: 1;
     /* Equal width */
-    height: 110px;
-    /* Slightly shorter */
+    height: 120px;
     min-width: 0;
     /* Important for flex-shrink */
 }
 
 .icon-circle {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
     background: #ffffff;
     display: flex;
     align-items: center;
@@ -2216,18 +2252,20 @@ textarea:focus {
 .box-info {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    text-align: center;
 }
 
 .box-label {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     font-weight: 800;
     color: var(--text-muted);
     text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .box-value {
-    font-size: 1rem;
-    /* Reduced to fit 320px sidebar comfortably */
+    font-size: 1.8rem;
     font-weight: 900;
     color: var(--text-main);
     white-space: nowrap;
@@ -4112,8 +4150,12 @@ body:has(.login-view) {
     z-index: 10001;
     animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     border-radius: 24px 0 0 24px;
-    /* Default desktop curve */
     box-sizing: border-box;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#moduleOverlay:not(.active) .spending-summary-panel {
+    transform: translateX(100%);
 }
 
 .ss-header {
