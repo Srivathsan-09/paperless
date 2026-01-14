@@ -482,14 +482,14 @@ function checkAuth() {
 }
 
 const currentPage = window.location.pathname.split('/').pop() || 'index.html';
-const isAuthPage = currentPage === 'Loginpage.html' || currentPage === 'index.html';
+const isAuthPage = currentPage === 'Loginpage.html';
 
 
 if (!checkAuth() && !isAuthPage) {
     window.location.href = 'Loginpage.html';
 } else if (STATE.isLoggedIn && isAuthPage) {
     // If already logged in and on Login Page, go to home
-    window.location.href = 'home.html';
+    window.location.href = 'index.html';
 }
 
 function logout() {
@@ -2666,7 +2666,7 @@ async function handleLogin(e) {
 function showSuccessLogo() {
     const overlay = document.getElementById('successOverlay');
     if (!overlay) {
-        window.location.href = 'home.html';
+        window.location.href = 'index.html';
         return;
     }
     overlay.style.display = 'flex';
@@ -2679,7 +2679,7 @@ function showSuccessLogo() {
         setTimeout(() => {
             overlay.style.display = 'none';
             overlay.style.visibility = 'hidden';
-            window.location.href = 'home.html';
+            window.location.href = 'index.html';
         }, 500);
     }, 2000); // 2 seconds as requested
 }
@@ -2711,7 +2711,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isSuccess === 'true') {
             showSuccessLogo();
         } else {
-            window.location.href = 'home.html';
+            window.location.href = 'index.html';
         }
         return; // Stop further initialization on this page if redirecting
     }
@@ -2732,7 +2732,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (exportBtn) exportBtn.addEventListener('click', exportToPDF);
 
         // Initial render if on home
-        if (currentPage === 'home.html') {
+        if (currentPage === 'index.html') {
             renderDashboard();
         }
     }

@@ -78,7 +78,7 @@
 
         if (!token || !loginJustCompleted) {
             // Illegal access -> redirect to dashboard/home immediately
-            window.location.replace('home.html');
+            window.location.replace('index.html');
         } else {
             // Valid access
             // Clear the flag so this page cannot be reloaded
@@ -90,7 +90,7 @@
                 container.style.animation = 'fadeOut 0.3s ease-out forwards';
 
                 setTimeout(() => {
-                    window.location.replace('home.html');
+                    window.location.replace('index.html');
                 }, 300);
             }, 2000);
         }

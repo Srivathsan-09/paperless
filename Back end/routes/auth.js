@@ -48,7 +48,7 @@ router.get(
                     { expiresIn: '7d' }
                 );
 
-                let redirectUrl = `/home.html?token=${token}&success=true`;
+                let redirectUrl = `/index.html?token=${token}&success=true`;
                 if (user.isNewUser) {
                     redirectUrl += '&isNewUser=true';
                 }

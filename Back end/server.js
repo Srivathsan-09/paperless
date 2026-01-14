@@ -52,9 +52,9 @@ app.get('/api/user/profile', verifyToken, (req, res) => {
 });
 
 
-// Root route - Redirect or serve Loginpage.html
+// Root route - Redirect or serve index.html
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../Front end', 'Loginpage.html'));
+    res.sendFile(path.join(__dirname, '../Front end', 'index.html'));
 });
 
 
