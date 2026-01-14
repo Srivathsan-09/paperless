@@ -16,7 +16,7 @@ require('./config/passport')(passport);
 
 // Middleware
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5000',
+    origin: process.env.FRONTEND_URL || 'https://personalpaperless.netlify.app/',
     credentials: true,
 }));
 
@@ -78,8 +78,11 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
+const API_URL = process.env.API_URL || `http://localhost:${PORT}`;
+
 app.listen(PORT, () => {
     console.log(`\n🚀 Server running on port ${PORT}`);
-    console.log(`📍 API URL: http://localhost:${PORT}`);
-    console.log(`🔐 Google OAuth: http://localhost:${PORT}/auth/google\n`);
+    console.log(`📍 API URL:      ${API_URL}`);
+    console.log(`🌐 Frontend URL:  ${process.env.FRONTEND_URL || API_URL}`);
+    console.log(`🔐 Google OAuth: ${API_URL}/auth/google\n`);
 });

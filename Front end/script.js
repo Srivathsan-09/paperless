@@ -2637,7 +2637,7 @@ function toggleAuthMode(e) {
         if (authTitle) authTitle.textContent = 'Sign Up';
 
         if (googleAuthBtn) {
-            googleAuthBtn.href = '/auth/google?mode=signup';
+            googleAuthBtn.href = 'https://paperless-rdsq.onrender.com/auth/google?mode=signup';
             if (googleBtnText) googleBtnText.textContent = 'Continue with Google';
         }
 
@@ -2648,7 +2648,7 @@ function toggleAuthMode(e) {
         if (authTitle) authTitle.textContent = 'Login';
 
         if (googleAuthBtn) {
-            googleAuthBtn.href = '/auth/google?mode=login';
+            googleAuthBtn.href = 'https://paperless-rdsq.onrender.com/auth/google?mode=login';
             if (googleBtnText) googleBtnText.textContent = 'Continue with Google';
         }
 
