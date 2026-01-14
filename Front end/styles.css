@@ -1437,7 +1437,7 @@ textarea:focus {
     background: rgba(239, 68, 68, 0.05);
 }
 
-.milk-overhaul-wrapper {
+.category-overhaul-wrapper {
     width: 100%;
     max-width: 1400px;
     margin: 0 auto;
@@ -1822,7 +1822,7 @@ textarea:focus {
     }
 
     .milk-search-horizontal .search-input {
-        width: 100px !important;
+        width: 130px !important;
         padding: 0.35rem 0.5rem !important;
         font-size: 0.85rem !important;
     }

@@ -875,11 +875,18 @@ async function renderDashboard() {
 
     // Ensure Miscellaneous Folder exists
     if (!dashboardList.some(c => c.name === 'Miscellaneous')) {
-        dashboardList.push({ name: 'Miscellaneous', id: 'miscellaneous', icon: 'grid', _id: 'miscellaneous' });
+        dashboardList.push({ name: 'Miscellaneous', id: 'miscellaneous', icon: 'more-horizontal', _id: 'miscellaneous' });
     }
     // Ensure Savings Folder exists
     if (!dashboardList.some(c => c.name === 'Savings')) {
-        dashboardList.push({ name: 'Savings', id: 'savings', icon: 'briefcase', _id: 'savings' });
+        dashboardList.push({ name: 'Savings', id: 'savings', icon: 'more-horizontal', _id: 'savings' });
+    }
+
+    // Place Milk at 1st position as requested
+    const milkIdx = dashboardList.findIndex(c => c.name === 'Milk');
+    if (milkIdx > -1) {
+        const milkCat = dashboardList.splice(milkIdx, 1)[0];
+        dashboardList.unshift(milkCat);
     }
 
     main.innerHTML = `
@@ -932,13 +939,13 @@ async function openCategory(id, isBackgroundRefresh = false) {
     if (id === 'miscellaneous') {
         const existing = STATE.categories.find(c => c.id === 'miscellaneous');
         if (!existing) {
-            STATE.categories.push({ name: 'Miscellaneous', id: 'miscellaneous', _id: 'miscellaneous', icon: 'grid' });
+            STATE.categories.push({ name: 'Miscellaneous', id: 'miscellaneous', _id: 'miscellaneous', icon: 'more-horizontal' });
         }
     }
     if (id === 'savings') {
         const existing = STATE.categories.find(c => c.id === 'savings');
         if (!existing) {
-            STATE.categories.push({ name: 'Savings', id: 'savings', _id: 'savings', icon: 'briefcase' });
+            STATE.categories.push({ name: 'Savings', id: 'savings', _id: 'savings', icon: 'more-horizontal' });
         }
     }
 
@@ -1026,6 +1033,7 @@ async function openCategory(id, isBackgroundRefresh = false) {
     if (toolContainer) toolContainer.style.display = 'block';
 
     main.innerHTML = `
+        <div class="category-overhaul-wrapper">
         <div class="overhaul-header">
             <!-- Mobile Back Button (Far Left) -->
             <button class="icon-btn mobile-only" onclick="renderDashboard()" style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; z-index: 10; color: var(--primary) !important;">
@@ -1090,35 +1098,22 @@ async function openCategory(id, isBackgroundRefresh = false) {
                 </div>
             </div>
         </div>
+        </div>
     `;
 }
 
 
 function openModule(subName, categoryId) {
     STATE.activeSubcategory = subName;
-    const isFullPage = STATE.activeCategory === 'miscellaneous' || STATE.activeCategory === 'savings';
 
-    if (isFullPage) {
-        // Render directly to main content (Full Page Mode)
-        const container = document.getElementById('categoryToolContainer') || document.getElementById('mainContent');
-        if (container) {
-            // Clear content if needed
-            if (container.id === 'mainContent') container.innerHTML = '<div id="categoryToolContainer"></div>';
+    // Default Modal/Overlay Mode (Always use for subcategories to avoid full-screen takeover)
+    const overlay = document.getElementById('moduleOverlay');
+    const panelTitle = document.getElementById('panelTitle');
 
-            // Custom Back Action to return to Grid
-            const returnToGrid = `openCategory('${STATE.activeCategory}')`;
-            renderModuleContent(subName, categoryId, document.getElementById('categoryToolContainer') || container, returnToGrid);
-        }
-    } else {
-        // Default Modal/Overlay Mode
-        const overlay = document.getElementById('moduleOverlay');
-        const panelTitle = document.getElementById('panelTitle');
+    if (panelTitle) panelTitle.textContent = subName;
+    if (overlay) overlay.classList.add('active');
 
-        if (panelTitle) panelTitle.textContent = subName;
-        if (overlay) overlay.classList.add('active');
-
-        renderModuleContent(subName, categoryId, document.getElementById('panelContent'));
-    }
+    renderModuleContent(subName, categoryId, document.getElementById('panelContent'));
 }
 
 
@@ -1265,11 +1260,12 @@ async function renderSpendingSummary(container) {
         // Calculate totals per parent category (dynamically)
         const categoriesMap = {};
         allEntries.forEach(e => {
-            // We need to find the parent category for this entry
-            const cat = STATE.categories.find(c => c._id === e.categoryId);
-            const parent = cat ? cat.parentCategory : 'Other';
+            // Find parent name optimally
+            const cat = STATE.categories.find(c => c._id === e.categoryId || c.id === e.categoryId);
+            const parent = e.parentCategory || (cat ? cat.parentCategory || cat.name : 'Other');
+
             categoriesMap[parent] = (categoriesMap[parent] || 0) + e.amount;
-            // Inject parent name for the transaction row display
+            // Inject names for the transaction row display
             e.categoryName = parent;
         });
 
@@ -1308,7 +1304,7 @@ async function renderSpendingSummary(container) {
         const day = dateObj.getDate();
         const month = dateObj.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
         return `
-                                <div class="ss-history-row" style="cursor: pointer;" onclick="handleSummaryClick('${e.categoryName}', '${e.categoryId}')">
+                                <div class="ss-history-row" style="cursor: pointer;" onclick="handleSummaryClick('${(e.categoryName || '').replace(/'/g, "\\'")}', '${e.categoryId}', '${(e.itemName || '').replace(/'/g, "\\'")}')">
                                     <div class="ss-date-pill">
                                         <span class="d">${day}</span>
                                         <span class="m">${month}</span>
@@ -1335,20 +1331,27 @@ async function renderSpendingSummary(container) {
 
 }
 
-function handleSummaryClick(parentName, categoryId) {
+function handleSummaryClick(parentName, categoryId, itemName) {
     if (parentName === 'Savings' || parentName === 'Miscellaneous') {
         // Redirect to full page grid view
-        document.getElementById('moduleOverlay').classList.remove('active');
-        document.getElementById('moduleOverlay').classList.remove('drawer-mode');
+        const overlay = document.getElementById('moduleOverlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+            overlay.classList.remove('drawer-mode');
+        }
 
-        // Find the category ID for openCategory (usually lowercase name or specific ID)
-        // We can find it in STATE.categories by name if needed, or assume ID
-        const cat = STATE.categories.find(c => c.name === parentName);
-        if (cat) openCategory(cat._id || cat.id);
+        // Close module state properly
+        STATE.activeSubcategory = null;
+
+        // Route to standardized IDs
+        const targetId = parentName === 'Savings' ? 'savings' : 'miscellaneous';
+        openCategory(targetId);
     } else {
-        // Default behavior: Open module in overlay
-        document.getElementById('moduleOverlay').classList.remove('drawer-mode');
-        openModule(parentName, categoryId);
+        // Default behavior: Open module in overlay (Use itemName if available as it represents the sub-item)
+        const overlay = document.getElementById('moduleOverlay');
+        if (overlay) overlay.classList.remove('drawer-mode');
+
+        openModule(itemName || parentName, categoryId);
     }
 }
 
@@ -1660,7 +1663,7 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
         </div>
         ` : ''}
         <div class="${isOverlay ? 'panel-body' : ''}">
-            <div class="milk-overhaul-wrapper">
+            <div class="category-overhaul-wrapper">
 
             <div class="overhaul-header" style="${window.innerWidth <= 768 ? 'margin-bottom: 0.5rem;' : ''}">
                 <!-- Mobile Back Button (Far Left) -->
