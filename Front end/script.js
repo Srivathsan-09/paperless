@@ -885,7 +885,7 @@ async function renderDashboard() {
 
 
     // Exclude subcategories of Misc/Savings from dashboard, and manual inject parent folders
-    const dashboardList = categories.filter(c => c.parentCategory !== 'Miscellaneous' && c.parentCategory !== 'Savings');
+    let dashboardList = categories.filter(c => c.parentCategory !== 'Miscellaneous' && c.parentCategory !== 'Savings');
 
     // Ensure Miscellaneous Folder exists
     if (!dashboardList.some(c => c.name === 'Miscellaneous')) {
@@ -896,12 +896,30 @@ async function renderDashboard() {
         dashboardList.push({ name: 'Savings', id: 'savings', icon: 'more-horizontal', _id: 'savings' });
     }
 
-    // Place Milk at 1st position as requested
-    const milkIdx = dashboardList.findIndex(c => c.name === 'Milk');
-    if (milkIdx > -1) {
-        const milkCat = dashboardList.splice(milkIdx, 1)[0];
-        dashboardList.unshift(milkCat);
-    }
+    // --- SORTING LOGIC ---
+    // 1. Extract Special Categories
+    const milkCat = dashboardList.find(c => c.name === 'Milk');
+    const miscCat = dashboardList.find(c => c.name === 'Miscellaneous');
+    const savingsCat = dashboardList.find(c => c.name === 'Savings');
+
+    // 2. Filter out special categories to get the general list
+    let generalCats = dashboardList.filter(c =>
+        c.name !== 'Milk' &&
+        c.name !== 'Miscellaneous' &&
+        c.name !== 'Savings'
+    );
+
+    // 3. Sort general categories Alphabetically (Case-Insensitive)
+    generalCats.sort((a, b) => a.name.localeCompare(b.name));
+
+    // 4. Reconstruct: [Milk] + [A-Z] + [Miscellaneous, Savings]
+    // Use a fresh array to ensure exact order
+    dashboardList = [];
+
+    if (milkCat) dashboardList.push(milkCat);
+    dashboardList.push(...generalCats);
+    if (miscCat) dashboardList.push(miscCat);
+    if (savingsCat) dashboardList.push(savingsCat);
 
     // Apply dashboard view classes NOW, just before rendering
     main.className = 'view-container dashboard-view';
@@ -1092,8 +1110,10 @@ async function openCategory(id, isBackgroundRefresh = false) {
                     <button class="card-edit-btn" onclick="editCategory(event, '${sub._id}', '${sub.name.replace(/'/g, "\\'")}')">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                     </button>
-                    ${(id !== 'miscellaneous' && id !== 'savings') ?
-            `<button class="card-delete-btn" onclick="event.stopPropagation(); deleteSubcategory('${id}', '${sub._id}')">&times;</button>` : ''}
+                    ${(id === 'savings') ?
+            `<button class="card-delete-btn" onclick="event.stopPropagation(); deleteCategory('${sub._id}')">&times;</button>` :
+            (id !== 'miscellaneous') ?
+                `<button class="card-delete-btn" onclick="event.stopPropagation(); deleteSubcategory('${id}', '${sub._id}')">&times;</button>` : ''}
                     <svg><use href="#icon-${getSubIconHelper(sub.name)}"></use></svg>
                     <span>${sub.name}</span>
                 </div>
