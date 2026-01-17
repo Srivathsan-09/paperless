@@ -927,7 +927,7 @@ async function renderDashboard() {
                 <div class="category-card" onclick="openCategory('${cat._id || cat.id}')">
                      <div class="card-menu-container">
                         <button class="card-menu-btn" onclick="toggleCardMenu(event, '${cat._id || cat.id}')">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="15" r="1"></circle></svg>
                         </button>
                         <div id="menu-${cat._id || cat.id}" class="card-dropdown-menu">
                             <button onclick="editCategory(event, '${cat._id || cat.id}', '${cat.name.replace(/'/g, "\\'")}')">Rename</button>
@@ -1128,7 +1128,7 @@ async function openCategory(id, isBackgroundRefresh = false) {
                 <div class="category-card sub-card" onclick="openModule('${sub.name}', '${sub._id}')">
                     <div class="card-menu-container">
                         <button class="card-menu-btn" onclick="toggleCardMenu(event, '${sub._id}')">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="15" r="1"></circle></svg>
                         </button>
                         <div id="menu-${sub._id}" class="card-dropdown-menu">
                             <button onclick="editCategory(event, '${sub._id}', '${sub.name.replace(/'/g, "\\'")}')">Rename</button>

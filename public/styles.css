@@ -5908,7 +5908,9 @@ body:has(.login-view) {
     background: transparent;
     border: none;
     color: var(--text-muted);
-    padding: 4px;
+    padding: 0;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     cursor: pointer;
     display: flex;

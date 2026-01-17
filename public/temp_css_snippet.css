@@ -1,0 +1,13 @@
+.card-menu-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    background: transparent;
+    /* Or keep default */
+    /* Ensure it doesn't get squashed */
+    flex-shrink: 0;
+}
