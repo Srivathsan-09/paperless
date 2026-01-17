@@ -10,7 +10,7 @@ const requiredEnv = ['MONGODB_URI', 'JWT_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CL
 const missingEnv = requiredEnv.filter(env => !process.env[env]);
 if (missingEnv.length > 0) {
     console.error(`❌ Missing required environment variables: ${missingEnv.join(', ')}`);
-    process.exit(1);
+    // process.exit(1); // Don't crash the serverless function immediately
 }
 
 // Initialize Express app
