@@ -13,7 +13,7 @@ module.exports = function () {
         callbackURL: process.env.GOOGLE_CALLBACK_URL ||
           (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/auth/google/callback` : null) ||
           (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/auth/google/callback` : null) ||
-          "http://localhost:5000/auth/google/callback",
+          "https://paperlesspersonal.vercel.app/auth/google/callback",
         passReqToCallback: true,
       },
       async (req, accessToken, refreshToken, profile, done) => {

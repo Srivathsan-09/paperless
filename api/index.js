@@ -31,7 +31,7 @@ const getBaseUrl = () => {
     if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
     if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
     if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-    return 'http://localhost:5000';
+    return 'https://paperlesspersonal.vercel.app';
 };
 const frontendUrl = getBaseUrl().replace(/\/$/, '');
 
