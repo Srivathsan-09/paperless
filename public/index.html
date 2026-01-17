@@ -15,7 +15,14 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 </head>
 
-<body class="dark-theme">
+<body>
+    <script>
+        // Immediate Theme Check to prevent flash
+        (function() {
+            const savedTheme = localStorage.getItem('PAPERLESS_THEME') || 'light-theme';
+            document.body.classList.add(savedTheme);
+        })();
+    </script>
     <div id="app">
         <header class="app-header">
             <div class="header-main-row">
