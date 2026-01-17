@@ -8,7 +8,12 @@ module.exports = function () {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || "http://localhost:5000/auth/google/callback",
+        // Construct dynamic callback URL if env var not set
+        // Priority: Custom GOOGLE_CALLBACK_URL -> Vercel Production -> Vercel Deployment -> Localhost
+        callbackURL: process.env.GOOGLE_CALLBACK_URL ||
+          (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/auth/google/callback` : null) ||
+          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/auth/google/callback` : null) ||
+          "http://localhost:5000/auth/google/callback",
         passReqToCallback: true,
       },
       async (req, accessToken, refreshToken, profile, done) => {

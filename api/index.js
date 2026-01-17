@@ -26,7 +26,14 @@ app.use(async (req, res, next) => {
 require('./config/passport')(passport);
 
 // Normalize Frontend URL (remove trailing slash)
-const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+// Priority: Custom FRONTEND_URL -> Vercel Production URL -> Vercel Preview URL -> Localhost
+const getBaseUrl = () => {
+    if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+    return 'http://localhost:5000';
+};
+const frontendUrl = getBaseUrl().replace(/\/$/, '');
 
 // Middleware
 app.use(cors({
