@@ -927,11 +927,11 @@ async function renderDashboard() {
                 <div class="category-card" onclick="openCategory('${cat._id || cat.id}')">
                      <div class="card-menu-container">
                         <button class="card-menu-btn" onclick="toggleCardMenu(event, '${cat._id || cat.id}')">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                         </button>
                         <div id="menu-${cat._id || cat.id}" class="card-dropdown-menu">
                             <button onclick="editCategory(event, '${cat._id || cat.id}', '${cat.name.replace(/'/g, "\\'")}')">Rename</button>
-                            ${(cat.id !== 'miscellaneous' && cat.id !== 'savings' && !['Milk', 'EB Bill'].includes(cat.name)) ?
+                            ${(cat.id !== 'miscellaneous' && cat.id !== 'savings') ?
             `<button class="delete-option" onclick="handleDeleteCategory(event, '${cat._id || cat.id}')">Delete</button>` : ''}
                         </div>
                      </div>
@@ -1128,7 +1128,7 @@ async function openCategory(id, isBackgroundRefresh = false) {
                 <div class="category-card sub-card" onclick="openModule('${sub.name}', '${sub._id}')">
                     <div class="card-menu-container">
                         <button class="card-menu-btn" onclick="toggleCardMenu(event, '${sub._id}')">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                         </button>
                         <div id="menu-${sub._id}" class="card-dropdown-menu">
                             <button onclick="editCategory(event, '${sub._id}', '${sub.name.replace(/'/g, "\\'")}')">Rename</button>
@@ -2815,7 +2815,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('click', (e) => {
         if (e.target.id === 'monthPickerModal') closeMonthPicker();
         if (e.target.id === 'moduleOverlay') closeModule();
-        
+
         // Close context menus if clicking outside
         if (!e.target.closest('.card-menu-container')) {
             closeAllMenus();
@@ -2829,18 +2829,18 @@ function toggleCardMenu(event, id) {
         event.stopPropagation();
         event.preventDefault();
     }
-    
+
     const menuId = `menu-${id}`;
     const menuEl = document.getElementById(menuId);
     if (!menuEl) return;
-    
+
     // Check if currently open
     const parent = menuEl.closest('.card-menu-container');
     const wasOpen = parent.classList.contains('active');
-    
+
     // Close all first
     closeAllMenus();
-    
+
     // If it wasn't open, open it now
     if (!wasOpen) {
         parent.classList.add('active');
@@ -2852,7 +2852,7 @@ function closeAllMenus() {
 }
 
 function handleDeleteCategory(event, id) {
-    if(event) {
+    if (event) {
         event.stopPropagation();
         event.preventDefault(); // Prevent menu close from immediately bubbling if inside button?
     }
@@ -2861,7 +2861,7 @@ function handleDeleteCategory(event, id) {
 }
 
 function handleDeleteSubcategory(event, catId, subId, subName) {
-    if(event) {
+    if (event) {
         event.stopPropagation();
     }
     closeAllMenus();
