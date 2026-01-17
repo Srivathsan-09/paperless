@@ -925,11 +925,16 @@ async function renderDashboard() {
         <div class="category-grid">
             ${dashboardList.map(cat => `
                 <div class="category-card" onclick="openCategory('${cat._id || cat.id}')">
-                     <button class="card-edit-btn" onclick="editCategory(event, '${cat._id || cat.id}', '${cat.name.replace(/'/g, "\\'")}')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                     </button>
-                     ${(cat.id !== 'miscellaneous' && cat.id !== 'savings' && !['Milk', 'EB Bill'].includes(cat.name)) ?
-            `<button class="card-delete-btn" onclick="event.stopPropagation(); deleteCategory('${cat._id || cat.id}')">&times;</button>` : ''}
+                     <div class="card-menu-container">
+                        <button class="card-menu-btn" onclick="toggleCardMenu(event, '${cat._id || cat.id}')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        </button>
+                        <div id="menu-${cat._id || cat.id}" class="card-dropdown-menu">
+                            <button onclick="editCategory(event, '${cat._id || cat.id}', '${cat.name.replace(/'/g, "\\'")}')">Rename</button>
+                            ${(cat.id !== 'miscellaneous' && cat.id !== 'savings' && !['Milk', 'EB Bill'].includes(cat.name)) ?
+            `<button class="delete-option" onclick="handleDeleteCategory(event, '${cat._id || cat.id}')">Delete</button>` : ''}
+                        </div>
+                     </div>
                     <svg><use href="#icon-${cat.icon || 'more-horizontal'}"></use></svg>
                     <span>${cat.name}</span>
                 </div>
@@ -1121,13 +1126,18 @@ async function openCategory(id, isBackgroundRefresh = false) {
         <div class="category-grid subcategory-grid">
             ${subs.map(sub => `
                 <div class="category-card sub-card" onclick="openModule('${sub.name}', '${sub._id}')">
-                    <button class="card-edit-btn" onclick="editCategory(event, '${sub._id}', '${sub.name.replace(/'/g, "\\'")}')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                    </button>
-                    ${(id === 'savings') ?
-            `<button class="card-delete-btn" onclick="event.stopPropagation(); deleteCategory('${sub._id}')">&times;</button>` :
+                    <div class="card-menu-container">
+                        <button class="card-menu-btn" onclick="toggleCardMenu(event, '${sub._id}')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        </button>
+                        <div id="menu-${sub._id}" class="card-dropdown-menu">
+                            <button onclick="editCategory(event, '${sub._id}', '${sub.name.replace(/'/g, "\\'")}')">Rename</button>
+                             ${(id === 'savings') ?
+            `<button class="delete-option" onclick="handleDeleteCategory(event, '${sub._id}')">Delete</button>` :
             (id !== 'miscellaneous') ?
-                `<button class="card-delete-btn" onclick="event.stopPropagation(); deleteSubcategory('${id}', '${sub._id}')">&times;</button>` : ''}
+                `<button class="delete-option" onclick="handleDeleteSubcategory(event, '${id}', '${sub._id}', '${sub.name.replace(/'/g, "\\'")}')">Delete</button>` : ''}
+                        </div>
+                    </div>
                     <svg><use href="#icon-${getSubIconHelper(sub.name)}"></use></svg>
                     <span>${sub.name}</span>
                 </div>
@@ -2801,12 +2811,62 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Theme
     initTheme();
 
+    // Close overlay if clicking purely on the overlay background
     window.addEventListener('click', (e) => {
         if (e.target.id === 'monthPickerModal') closeMonthPicker();
-        // Close overlay if clicking purely on the overlay background
         if (e.target.id === 'moduleOverlay') closeModule();
+        
+        // Close context menus if clicking outside
+        if (!e.target.closest('.card-menu-container')) {
+            closeAllMenus();
+        }
     });
 });
+
+// --- NEW HELPER FUNCTIONS FOR CONTEXT MENU ---
+function toggleCardMenu(event, id) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    
+    const menuId = `menu-${id}`;
+    const menuEl = document.getElementById(menuId);
+    if (!menuEl) return;
+    
+    // Check if currently open
+    const parent = menuEl.closest('.card-menu-container');
+    const wasOpen = parent.classList.contains('active');
+    
+    // Close all first
+    closeAllMenus();
+    
+    // If it wasn't open, open it now
+    if (!wasOpen) {
+        parent.classList.add('active');
+    }
+}
+
+function closeAllMenus() {
+    document.querySelectorAll('.card-menu-container.active').forEach(el => el.classList.remove('active'));
+}
+
+function handleDeleteCategory(event, id) {
+    if(event) {
+        event.stopPropagation();
+        event.preventDefault(); // Prevent menu close from immediately bubbling if inside button?
+    }
+    closeAllMenus();
+    deleteCategory(id);
+}
+
+function handleDeleteSubcategory(event, catId, subId, subName) {
+    if(event) {
+        event.stopPropagation();
+    }
+    closeAllMenus();
+    deleteSubcategory(catId, subName);
+}
 
 // --- NEW HELPER FUNCTIONS FOR MISC & SAVINGS ---
 
