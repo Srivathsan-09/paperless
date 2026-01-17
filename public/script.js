@@ -647,6 +647,7 @@ async function deleteSubcategory(catId, subName) {
 // --- REFACTOR HELPERS ---
 function editCategory(event, id, currentName) {
     if (event) event.stopPropagation();
+    closeAllMenus();
     const card = event.target.closest('.category-card') || event.target.closest('.subcategory-card-item');
     if (!card) return;
 
