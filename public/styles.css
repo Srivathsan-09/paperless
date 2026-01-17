@@ -35,6 +35,7 @@
     --border: #2d3247;
     --primary-light: rgba(99, 102, 241, 0.15);
     --shadow-soft: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    /* Reduced shadow sizes for mobile maybe? */
     --shadow-hover: 0 20px 25px -5px rgba(99, 102, 241, 0.2), 0 8px 10px -6px rgba(99, 102, 241, 0.2);
 }
 
@@ -95,8 +96,18 @@ body {
     width: 100%;
     max-width: 100vw;
     /* Strict Constraint */
+    margin: 0;
+    padding: 0;
     position: relative;
     /* Prevent horizontal scroll from gradients */
+}
+
+html {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
 }
 
 /* Background Decorations */
@@ -224,11 +235,14 @@ body::after {
     .header-main-row {
         width: 100%;
         display: grid;
-        grid-template-columns: auto 1fr auto;
-        /* Flexible right side for buttons */
+        grid-template-columns: min-content 1fr min-content;
+        /* Squeeze sides */
         align-items: center;
         height: 48px;
-        padding-right: 0.5rem;
+        padding-right: 0;
+        /* Remove right padding */
+        gap: 0.5rem;
+        /* Ensure gap between columns */
     }
 
     .header-left,
@@ -251,17 +265,18 @@ body::after {
 
     .header-right {
         justify-content: flex-end;
-        gap: 0.25rem;
-        /* Reduced from 0.5rem */
+        gap: 0.2rem;
+        /* Almost touching */
     }
 
     .logo {
-        font-size: 1.8rem !important;
-        /* Increased from 1.5rem */
+        font-size: 1.4rem !important;
+        /* Reduced from 1.8rem */
         margin: 0 !important;
-        text-align: center !important;
+        text-align: left !important;
         font-weight: 800 !important;
         color: var(--primary) !important;
+        line-height: 1;
     }
 
     .header-sub-row {
@@ -300,11 +315,10 @@ body::after {
     }
 
     .theme-btn {
-        width: 38px !important;
-        /* Increased from 32px */
-        height: 38px !important;
-        /* Increased from 32px */
-        border-radius: 10px !important;
+        width: 34px !important;
+        /* Reduced from 38px */
+        height: 34px !important;
+        border-radius: 8px !important;
     }
 
     .theme-btn svg {
@@ -320,13 +334,15 @@ body::after {
         font-size: 0.9rem !important;
         /* Increased font */
         border-radius: 10px !important;
-        height: 38px;
+        height: 34px;
+        /* Reduced from 38px */
         /* Match theme btn height */
         display: flex;
         align-items: center;
-        padding-left: 0.5rem !important;
-        /* Reduce padding */
-        padding-right: 0.5rem !important;
+        padding-left: 0.4rem !important;
+        /* Tight padding */
+        padding-right: 0.4rem !important;
+        font-size: 0.8rem !important;
     }
 
     .add-icon-circle {
@@ -349,11 +365,11 @@ body::after {
         /* Increased padding */
         font-size: 0.9rem !important;
         /* Increased font */
-        height: 38px;
-        /* Increased height */
+        height: 34px;
+        /* Reduced */
         /* Constrain width to prevent overlap */
-        max-width: 110px;
-        /* Reduced from 140px */
+        max-width: 100px;
+        /* Reduced from 110px */
         /* Slightly wider */
         overflow: hidden;
         border-radius: 12px;
@@ -631,6 +647,9 @@ h3,
         /* Remove extra padding, rely on main container */
         width: 100%;
         margin: 0;
+        box-sizing: border-box;
+        /* Reinforce */
+        max-width: 100vw;
     }
 
     .category-card {
