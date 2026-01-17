@@ -334,12 +334,13 @@ body::after {
         font-size: 0.9rem !important;
         /* Increased font */
         border-radius: 10px !important;
-        height: 34px;
+        height: 34px !important;
+        /* Match theme btn height exactly */
         /* Reduced from 38px */
-        /* Match theme btn height */
         display: flex;
         align-items: center;
-        padding-left: 0.4rem !important;
+        padding-left: 0.5rem !important;
+        /* Relaxed padding */
         /* Tight padding */
         padding-right: 0.4rem !important;
         font-size: 0.8rem !important;
@@ -370,7 +371,9 @@ body::after {
         /* Reduced */
         /* Constrain width to prevent overlap */
         max-width: 100px;
-        width: 90px;
+        max-width: 100px;
+        width: 100px;
+        /* Slightly increased from 90px to prevent text truncation */
         /* Ensure wide enough to space out arrows */
         border-radius: 12px;
         display: flex;
