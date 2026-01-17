@@ -393,6 +393,13 @@ body::after {
         display: block;
         text-align: center;
     }
+
+    /* Fix Sticky Hover on Mobile Month Selector */
+    .month-selector-trigger:hover {
+        background: var(--primary-light) !important;
+        color: var(--primary) !important;
+        box-shadow: none !important;
+    }
 }
 
 /* ... existing header inner classes ... */
@@ -700,7 +707,8 @@ h3,
     right: 8px;
     width: 24px;
     height: 24px;
-    background: rgba(239, 68, 68, 0.1);
+    background: transparent;
+    /* Removed circle background */
     color: var(--error);
     border: none;
     border-radius: 50%;
@@ -729,8 +737,9 @@ h3,
     position: absolute;
     top: 10px;
     right: 44px;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    /* Reduced from 20px */
+    height: 18px;
     background: transparent;
     color: var(--text-muted);
     border: none;
@@ -757,8 +766,9 @@ h3,
 }
 
 .card-edit-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    /* Reduced from 16px */
+    height: 14px;
     stroke-width: 2.5px;
 }
 
