@@ -865,7 +865,15 @@ async function renderDashboard() {
     // Unified Header Update
     HeaderManager.update({ showBack: false });
 
-    // Fetch categories for dashboard
+    // --- PARALLEL FETCHING START ---
+    // Start fetching entries immediately for the background
+    const monthStr = `${STATE.selectedYear}-${String(STATE.selectedMonth + 1).padStart(2, '0')}`;
+    const entriesPromise = fetchAPI(`/api/entries?month=${monthStr}`).catch(e => {
+        console.error("Failed to fetch entries", e);
+        return [];
+    });
+
+    // Fetch categories for dashboard (Critical Path)
     let categories = await fetchCategories();
     // Use defaults if none found from API
     if (categories.length === 0) {
@@ -873,16 +881,6 @@ async function renderDashboard() {
     } else {
         STATE.categories = categories; // Update local state for other functions
     }
-
-    // Fetch total monthly spending
-    let totalMonth = 0;
-    try {
-        const monthStr = `${STATE.selectedYear}-${String(STATE.selectedMonth + 1).padStart(2, '0')}`;
-        // Optimization: Use the new all-entries endpoint
-        const allEntries = await fetchAPI(`/api/entries?month=${monthStr}`);
-        totalMonth = allEntries.reduce((sum, d) => sum + d.amount, 0);
-    } catch (e) { console.error(e); }
-
 
     // Exclude subcategories of Misc/Savings from dashboard, and manual inject parent folders
     let dashboardList = categories.filter(c => c.parentCategory !== 'Miscellaneous' && c.parentCategory !== 'Savings');
@@ -925,6 +923,7 @@ async function renderDashboard() {
     main.className = 'view-container dashboard-view';
     main.classList.remove('milk-view'); // Explicitly cleanup
 
+    // RENDER IMMEDIATE UI (Categories + Loading State for Total)
     main.innerHTML = `
         <div class="category-grid">
             ${dashboardList.map(cat => `
@@ -950,7 +949,7 @@ async function renderDashboard() {
         <div class="stats-container">
             <div class="stat-card clickable-card" onclick="openModule('Spending Summary')">
                 <h3>Total Monthly Spending</h3>
-                <div class="value">₹${totalMonth.toLocaleString()}</div>
+                <div class="value" id="dashboardTotalValue"><span style="font-size: 1rem; color: var(--text-muted);">Loading...</span></div>
                 <div class="trend">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
                     Current Month Status
@@ -958,6 +957,22 @@ async function renderDashboard() {
             </div>
         </div>
     `;
+
+    // --- LAZY LOAD TOTAL ---
+    // Now await the entries processing in the background
+    try {
+        const allEntries = await entriesPromise;
+        const totalMonth = allEntries.reduce((sum, d) => sum + d.amount, 0);
+
+        // Update UI if still in dashboard view
+        // Safety check: element might be gone if user navigated away quickly
+        const valueEl = document.getElementById('dashboardTotalValue');
+        if (valueEl) {
+            valueEl.innerText = `₹${totalMonth.toLocaleString()}`;
+        }
+    } catch (e) {
+        console.error("Error updating dashboard total", e);
+    }
 }
 
 
@@ -1083,7 +1098,7 @@ async function openCategory(id, isBackgroundRefresh = false) {
 
     main.innerHTML = `
         <div class="category-overhaul-wrapper">
-        <div class="overhaul-header">
+        <div class="overhaul-header" style="margin-bottom: 1rem;">
             <!-- Mobile Back Button (Far Left) -->
             <button class="icon-btn mobile-only" onclick="renderDashboard()" style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; z-index: 10; color: var(--primary) !important;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -1098,7 +1113,9 @@ async function openCategory(id, isBackgroundRefresh = false) {
                     </button>
                 </div>
                 <div class="header-center-col">
-                    <h2 class="category-title" style="margin: 0;">${cat.name}</h2>
+                    <div style="height: 44px; display: flex; align-items: center; justify-content: center;">
+                        <h2 class="category-title" style="margin: 0;">${cat.name}</h2>
+                    </div>
                 </div>
                 <div class="header-right-col"></div>
             </div>
@@ -1465,7 +1482,8 @@ async function renderGenericForm(container, subName, categoryId, customBackActio
     HeaderManager.update({
         showBack: true,
         onBack: onBack,
-        hideMonthSelector: true
+        // FIX: Show month selector if we are in Miscellaneous or if explicitly allowed
+        hideMonthSelector: (STATE.activeCategory !== 'Miscellaneous' && STATE.activeCategory !== 'miscellaneous') && (categoryId !== 'misc' && categoryId !== 'miscellaneous')
     });
 
     const isDescriptive = subName === 'Small Spends' || subName === 'General Expense' || subName === 'Medical' || subName === 'Newspaper';
@@ -2867,6 +2885,12 @@ async function renderSubcategoryView(container, parentName) {
 }
 
 async function renderSavingsForm(container, subName, categoryId) {
+    // FIX: Ensure Header shows Month Selector
+    HeaderManager.update({
+        showBack: true,
+        onBack: `closeModule('Savings')`,
+        hideMonthSelector: false
+    });
     const customFieldsHTML = `
         <div class="form-group">
             <label>Organisation (Optional)</label>

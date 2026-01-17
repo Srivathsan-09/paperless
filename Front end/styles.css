@@ -519,7 +519,7 @@ body::after {
 
     .view-container.milk-view .day-card.overhaul {
         width: 100% !important;
-        min-width: 140px !important;
+        min-width: 100px !important;
         /* Force wider cards */
         box-sizing: border-box;
     }
