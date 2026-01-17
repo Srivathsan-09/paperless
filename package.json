@@ -5,8 +5,7 @@
   "main": "script.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node \"Back end/server.js\"",
-    "dev": "nodemon \"Back end/server.js\""
+    "start": "echo \"Use 'vercel dev' to start the serverless project locally\""
   },
   "keywords": [],
   "author": "",

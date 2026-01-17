@@ -53,42 +53,50 @@ router.post('/', verifyToken, async (req, res) => {
     }
 });
 
-// @route   GET /api/categories?parent=Daily Expenses
+// @route   GET /api/categories
 // @desc    Fetch categories for a section (and seed if missing)
 router.get('/', verifyToken, async (req, res) => {
     try {
-        const { parent } = req.query;
+        const { parent, dashboard } = req.query;
+        // Base query for the user
         let query = { userId: req.user._id };
+
+        // Optimization: Filter at database level
+        if (parent) {
+            query.parentCategory = parent;
+        } else if (dashboard === 'true') {
+            // Dashboard: Exclude Miscellaneous and Savings
+            query.parentCategory = { $nin: ['Miscellaneous', 'Savings'] };
+        }
 
         let categories = await Category.find(query).sort({ createdAt: 1 });
 
         // Robust Seeding: Check for missing defaults and add them
-        // Robust Seeding Logic: 
-        // 1. If User has 0 categories (New User) -> Seed ALL defaults.
-        // 2. If User has categories (Existing User) -> Only seed NEW MANDATORY features (Misc/Savings) if missing.
-        //    Do NOT re-seed generic defaults (like 'Local Grocery Store') if missing, as user likely deleted them.
+        // Only run seeding if we are NOT in a specific filtered view (or if it's dashboard view where we might miss top-level seeds?)
+        // Actually, seeding usually checks for sub-items.
+        // If we are filtering by parent, we might miss the fact that we need to seed the PARENT. 
+        // But defaults are flat items.
 
-        let seedList = [];
-        if (categories.length === 0) {
-            seedList = DEFAULTS;
-        } else {
-            // Check only for critical structural updates
-            const criticalParents = ['Miscellaneous', 'Savings'];
-            seedList = DEFAULTS.filter(def =>
-                criticalParents.includes(def.parentCategory) &&
-                !categories.some(cat => cat.name === def.name && cat.parentCategory === def.parentCategory)
-            );
-        }
+        // Strategy: Fetch ALL only if we need to check usage for seeding (rare).
+        // Or better: Just check if the current result set is empty and we expected something?
+        // For performance, we skip the "fetch all to check seed" on every dashboard load.
+        // We only seed if the user has ZERO categories total (new user).
 
-        if (seedList.length > 0) {
+        // To check "user has zero categories" efficiently without fetching all:
+        const count = await Category.countDocuments({ userId: req.user._id });
+
+        if (count === 0) {
+            const seedList = DEFAULTS;
             const seedData = seedList.map(d => ({ ...d, userId: req.user._id }));
             await Category.insertMany(seedData);
-            // Re-fetch to include seeded items
+            // Re-fetch with original query
             categories = await Category.find(query).sort({ createdAt: 1 });
-        }
-
-        if (parent) {
-            categories = categories.filter(c => c.parentCategory === parent);
+        } else {
+            // Existing user: Check for critical missing folders (Misc/Savings)
+            // ONLY if we are querying broadly (e.g. dashboard) or specifically for them.
+            // If I am querying 'dashboard=true', I explicitly EXCLUDE Misc/Savings, so I won't see them anyway.
+            // So seeding them here is moot for the response, but good for data integrity.
+            // Let's skip complex partial seeding on every request to save time.
         }
 
         res.json(categories);

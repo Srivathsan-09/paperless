@@ -520,23 +520,18 @@ function getUTCDateObj(year, month, day) {
 
 // --- DATA SYNC ---
 
-async function fetchCategories(parent = '') {
+async function fetchCategories(parent = '', isDashboard = false) {
     try {
-        const url = parent ? `/api/categories?parent=${encodeURIComponent(parent)}` : '/api/categories';
-        const categories = await fetchAPI(url);
+        let url = '/api/categories';
+        const params = new URLSearchParams();
+        if (parent) params.append('parent', parent);
+        if (isDashboard) params.append('dashboard', 'true');
 
-        // Merge with default categories or replace
-        // For now, let's keep the defaults but allow user-added ones
-        const defaultIds = [
-            'daily', 'utilities', 'groceries', 'maintenance', 'education',
-            'health', 'transport', 'events', 'subscriptions', 'misc'
-        ];
-
-        // Add custom categories that aren't in the defaults (if they are parent level)
-        if (!parent) {
-            const custom = categories.filter(c => !defaultIds.includes(c.name.toLowerCase()));
-            // This logic might need refinement based on how custom categories are stored
+        if (params.toString()) {
+            url += `?${params.toString()}`;
         }
+
+        const categories = await fetchAPI(url);
 
         return categories;
     } catch (err) {
@@ -874,12 +869,14 @@ async function renderDashboard() {
     });
 
     // Fetch categories for dashboard (Critical Path)
-    let categories = await fetchCategories();
+    // Optimization: Request only dashboard items from backend to reduce payload
+    let categories = await fetchCategories('', true);
     // Use defaults if none found from API
     if (categories.length === 0) {
-        categories = STATE.categories;
+        // If API returns empty (new user?), falls back to local state or empty
+        // logic below handles it
     } else {
-        STATE.categories = categories; // Update local state for other functions
+        STATE.categories = categories; // Update local state
     }
 
     // Exclude subcategories of Misc/Savings from dashboard, and manual inject parent folders

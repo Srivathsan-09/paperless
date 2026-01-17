@@ -16,8 +16,11 @@ if (missingEnv.length > 0) {
 // Initialize Express app
 const app = express();
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB via middleware
+app.use(async (req, res, next) => {
+    await connectDB();
+    next();
+});
 
 // Initialize Passport configuration
 require('./config/passport')(passport);
@@ -37,8 +40,8 @@ app.use(express.urlencoded({ extended: true }));
 // Initialize Passport (without sessions since we're using JWT)
 app.use(passport.initialize());
 
-// Serve static files from the "Front end" directory
-app.use(express.static(path.join(__dirname, '../Front end')));
+// Static files are served by Vercel from the public directory
+// app.use(express.static(path.join(__dirname, '../Front end')));
 
 // Routes
 app.use('/auth', require('./routes/auth'));
@@ -63,10 +66,10 @@ app.get('/api/user/profile', verifyToken, (req, res) => {
 });
 
 
-// Root route - Redirect or serve Loginpage.html
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../Front end', 'Loginpage.html'));
-});
+// Root route is handled by Vercel serving public/index.html or similar
+// app.get('/', (req, res) => {
+//     res.sendFile(path.join(__dirname, '../Front end', 'Loginpage.html'));
+// });
 
 
 // 404 handler
@@ -87,15 +90,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Start server
-// Start server
-if (process.env.NODE_ENV !== 'production') {
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-        console.log(`\n🚀 Server running on port ${PORT}`);
-        console.log(`📍 API URL: http://localhost:${PORT}`);
-        console.log(`🔐 Google OAuth: http://localhost:${PORT}/auth/google\n`);
-    });
-}
+// Serverless deployment: Export the app
+// Vercel handles the server execution
 
 module.exports = app;
