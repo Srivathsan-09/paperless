@@ -2408,7 +2408,14 @@ function navMonth(delta) {
 function updateMonthDisplay() {
     const display = document.getElementById('currentMonthYear');
     if (display) {
-        display.textContent = `${MONTHS[STATE.selectedMonth]} ${STATE.selectedYear}`;
+        const isMobile = window.innerWidth <= 768;
+        // Mobile: "Jan" / Desktop: "January 2025"
+        if (isMobile) {
+            display.textContent = MONTHS[STATE.selectedMonth].substring(0, 3);
+            // Optionally add year if space permits, but user asked for "Jan", "Feb"
+        } else {
+            display.textContent = `${MONTHS[STATE.selectedMonth]} ${STATE.selectedYear}`;
+        }
     }
 
     const pickerYear = document.getElementById('pickerYear');

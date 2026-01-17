@@ -361,7 +361,8 @@ body::after {
 
     /* Compacting Month Selector for Mobile */
     .month-selector-trigger {
-        padding: 0.5rem 1rem !important;
+        padding: 0.5rem 0.2rem !important;
+        /* Very tight padding */
         /* Increased padding */
         font-size: 0.9rem !important;
         /* Increased font */
@@ -369,13 +370,15 @@ body::after {
         /* Reduced */
         /* Constrain width to prevent overlap */
         max-width: 100px;
-        /* Reduced from 110px */
-        /* Slightly wider */
-        overflow: hidden;
+        width: 90px;
+        /* Ensure wide enough to space out arrows */
         border-radius: 12px;
-        /* Smooth aesthetic */
         display: flex;
         align-items: center;
+        justify-content: space-between !important;
+        /* Push arrows to edges */
+        padding: 0 0.25rem !important;
+        /* Minimize outer padding to maximize internal space */
     }
 
     .month-selector-trigger span {
@@ -1715,6 +1718,14 @@ textarea:focus {
 .tab-group.v3 .tab-btn:hover:not(.active) {
     background: var(--primary-light);
     color: var(--primary);
+}
+
+@media (max-width: 768px) {
+    .tab-group.v3 .tab-btn {
+        padding: 0.5rem 0.8rem !important;
+        font-size: 0.85rem !important;
+        height: 36px !important;
+    }
 }
 
 .overhaul-main-card {
