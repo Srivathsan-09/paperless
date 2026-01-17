@@ -1739,21 +1739,20 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
             <div class="category-overhaul-wrapper">
 
             <div class="overhaul-header" style="${window.innerWidth <= 768 ? 'margin-bottom: 0.5rem;' : ''}">
-                <!-- Mobile Back Button (Far Left) -->
-                <button class="icon-btn mobile-only" onclick="renderDashboard()" style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; z-index: 10; color: var(--primary) !important;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                </button>
-
                 <div class="overhaul-tabs-row">
-                    <div class="header-left-col">
+                    <div class="header-left-col" style="display: flex; justify-content: flex-start; min-width: 44px;">
                         <!-- Desktop Back Button -->
                         <button class="back-btn-v3 desktop-only" onclick="renderDashboard()">
                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
                              Back
                         </button>
+                        <!-- Mobile Back Button (In Flow) -->
+                         <button class="icon-btn mobile-only" onclick="renderDashboard()" style="color: var(--primary) !important; padding: 0;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                        </button>
                     </div>
 
-                    <div class="header-center-col">
+                    <div class="header-center-col" style="flex: 1;">
                         <div class="tab-group v3">
                             <button class="tab-btn ${STATE.milkSubView === 'calendar' ? 'active' : ''}" onclick="STATE.milkSubView='calendar'; renderMilkTracker(document.getElementById('${targetId}'))">
                                 <svg class="desktop-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
@@ -1766,7 +1765,7 @@ async function renderMilkTracker(container, searchRange = null, page = 1) {
                         </div>
                     </div>
 
-                    <div class="header-right-col"></div>
+                    <div class="header-right-col" style="min-width: 44px;"></div>
                 </div>
             </div>
 

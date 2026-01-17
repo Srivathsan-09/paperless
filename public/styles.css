@@ -92,6 +92,10 @@ body {
     position: relative;
     /* For pseudo-elements */
     overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+    /* Strict Constraint */
+    position: relative;
     /* Prevent horizontal scroll from gradients */
 }
 
@@ -247,8 +251,8 @@ body::after {
 
     .header-right {
         justify-content: flex-end;
-        gap: 0.5rem;
-        /* Increased spacing */
+        gap: 0.25rem;
+        /* Reduced from 0.5rem */
     }
 
     .logo {
@@ -320,6 +324,9 @@ body::after {
         /* Match theme btn height */
         display: flex;
         align-items: center;
+        padding-left: 0.5rem !important;
+        /* Reduce padding */
+        padding-right: 0.5rem !important;
     }
 
     .add-icon-circle {
@@ -345,7 +352,8 @@ body::after {
         height: 38px;
         /* Increased height */
         /* Constrain width to prevent overlap */
-        max-width: 140px;
+        max-width: 110px;
+        /* Reduced from 140px */
         /* Slightly wider */
         overflow: hidden;
         border-radius: 12px;
@@ -527,11 +535,13 @@ body::after {
 
 @media (max-width: 768px) {
     #mainContent {
-        padding: 1rem;
+        padding: 0.75rem;
+        /* Slight increase for visual balance, safe with border-box */
         padding-top: 2px;
-        /* Minimize space from fixed header */
-        margin-top: 80px;
-        /* Match view-container offset */
+        margin-top: 75px;
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
     }
 
     #mainContent.dashboard-view {
@@ -611,16 +621,25 @@ h3,
 }
 
 @media (max-width: 640px) {
-    .category-card {
-        width: calc(50% - 1rem);
-        /* 2 cards per row */
-        height: 140px;
-        border-radius: 20px;
+    .category-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        /* 2 Columns */
+        gap: 0.75rem;
+        /* Reduced gap */
+        padding: 0;
+        /* Remove extra padding, rely on main container */
+        width: 100%;
+        margin: 0;
     }
 
-    .category-grid {
-        gap: 1rem;
-        padding: 0 1rem;
+    .category-card {
+        width: 100% !important;
+        /* Fill grid cell */
+        height: 140px;
+        border-radius: 20px;
+        max-width: none;
+        margin: 0;
     }
 }
 
@@ -1020,6 +1039,19 @@ h3,
         max-height: 92vh;
         border-radius: 32px;
         /* Maintain curved edges on mobile */
+    }
+
+    /* Drawer / Full Screen Mobile Override */
+    #moduleOverlay.drawer-mode {
+        padding: 0 !important;
+        align-items: flex-end !important;
+        /* Start from bottom or just fill */
+    }
+
+    #moduleOverlay.drawer-mode .panel-content {
+        max-height: 100%;
+        height: 100%;
+        border-radius: 0;
     }
 
     .panel-header {
@@ -1524,9 +1556,16 @@ textarea:focus {
     width: 100%;
     max-width: 1700px;
     margin: 0 auto;
-    padding: 0 1.5rem 1.5rem;
+    padding: 0 0.5rem 1.5rem;
+    /* Reduced mobile padding */
     box-sizing: border-box;
     overflow-x: hidden;
+}
+
+@media (min-width: 769px) {
+    .category-overhaul-wrapper {
+        padding: 0 1.5rem 1.5rem;
+    }
 }
 
 .overhaul-header {
@@ -2097,7 +2136,8 @@ textarea:focus {
 
 @media (max-width: 640px) {
     .overhaul-main-card {
-        padding: 1.25rem;
+        padding: 0.75rem;
+        /* Drastically reduced from 1.25rem */
     }
 
     .milk-calendar-grid.v3 {
@@ -2371,6 +2411,16 @@ textarea:focus {
     padding: 24px;
     border: 1px solid var(--border);
     box-shadow: var(--shadow-soft);
+    width: 100%;
+    /* Ensure it doesn't exceed parent */
+    box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+    .chart-card-outer {
+        padding: 1rem;
+        /* Reduced from 24px */
+    }
 }
 
 .chart-card-header {
@@ -2394,6 +2444,8 @@ textarea:focus {
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    position: relative;
 }
 
 @media (max-width: 640px) {
@@ -2996,6 +3048,16 @@ textarea:focus {
     box-shadow: var(--shadow-soft);
 }
 
+@media (max-width: 640px) {
+    .recent-expenses-section {
+        padding: 1rem;
+        /* Reduced from 2rem */
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}
+
 .recent-expenses-section h3 {
     font-size: 1.1rem;
     font-weight: 800;
@@ -3033,6 +3095,18 @@ textarea:focus {
     transition: var(--transition);
     position: relative;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+@media (max-width: 640px) {
+    .history-item {
+        padding: 0.75rem 1rem;
+        /* Reduced from 1.25rem 1.5rem */
+    }
+
+    .history-left {
+        gap: 0.75rem;
+        /* Reduced gap */
+    }
 }
 
 .history-item:hover {
@@ -4243,6 +4317,8 @@ body:has(.login-view) {
     pointer-events: none;
     margin: 0 !important;
     animation: none !important;
+    position: static !important;
+    /* Change from relative to static to allow children to fill */
 }
 
 #moduleOverlay.drawer-mode #panelContent {
@@ -4255,11 +4331,14 @@ body:has(.login-view) {
 @media (max-width: 640px) {
     .spending-summary-panel {
         max-width: 100%;
-        width: 100%;
-        border-radius: 0;
-        height: 100vh;
+        width: 100% !important;
+        border-radius: 0 !important;
+        height: 100% !important;
+        /* Force full height on mobile */
         top: 0;
         right: 0;
+        transform: none !important;
+        /* Disable standard drawer slide transform if handled by opacity/display or rely on slideInRight */
     }
 
     .ss-total-box {
@@ -4388,6 +4467,13 @@ body:has(.login-view) {
     /* Adjusted margins */
 }
 
+@media (max-width: 640px) {
+    .ss-total-box {
+        margin: 0.5rem 0.5rem 1rem 0.5rem !important;
+        /* Tighter margins for mobile */
+    }
+}
+
 .ss-total-label {
     display: block;
     font-size: 0.8rem;
@@ -4503,6 +4589,7 @@ body:has(.login-view) {
     font-size: 0.95rem;
     flex: 1;
     white-space: normal;
+    word-break: break-word;
     /* Allow wrapping */
     line-height: 1.3;
 }
