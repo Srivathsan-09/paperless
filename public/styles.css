@@ -4555,15 +4555,24 @@ body:has(.login-view) {
     border: 1px solid var(--border);
     border-radius: 14px;
     background: var(--card-bg);
-    color: var(--text-main);
+    color: #000;
+    /* Force dark text as requested */
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
+    /* Bolder text */
     outline: none;
     cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
     transition: var(--transition);
+    min-height: 48px;
+    /* Ensure match with standard inputs */
+}
+
+.dark-theme .custom-select-trigger {
+    color: #fff;
+    /* White in dark mode */
 }
 
 .custom-select-trigger:focus {
@@ -4576,21 +4585,18 @@ body:has(.login-view) {
     top: calc(100% + 0.5rem);
     left: 0;
     right: 0;
-    background: #1e1e1e;
-    /* Dark background as per design ref */
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 0.5rem;
     z-index: 200;
     display: none;
     flex-direction: column;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
-.light-theme .custom-options-list {
-    background: #ffffff;
-    border: 1px solid var(--border);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+.dark-theme .custom-options-list {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
 }
 
 .custom-options-list.active {
@@ -4603,42 +4609,35 @@ body:has(.login-view) {
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1rem;
-    color: #e0e0e0;
+    color: var(--text-main);
+    /* Standard text color */
     cursor: pointer;
     border-radius: 8px;
     transition: background 0.2s;
     font-family: 'Outfit', sans-serif;
-}
-
-.light-theme .custom-option {
-    color: #333;
+    font-weight: 500;
 }
 
 .custom-option:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.light-theme .custom-option:hover {
-    background: var(--bg-color);
+    background: var(--bg-hover);
 }
 
 .radio-circle {
-    width: 18px;
-    height: 18px;
-    border: 2px solid #666;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-muted);
     border-radius: 50%;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.2s;
 }
 
 .custom-option.selected .radio-circle {
-    border-color: #fff;
-}
-
-.light-theme .custom-option.selected .radio-circle {
     border-color: var(--primary);
+    background: var(--primary);
+    /* Filled style */
 }
 
 .radio-circle::after {
@@ -4649,11 +4648,7 @@ body:has(.login-view) {
     border-radius: 50%;
     opacity: 0;
     transform: scale(0);
-    transition: all 0.2s;
-}
-
-.light-theme .radio-circle::after {
-    background: var(--primary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .custom-option.selected .radio-circle::after {

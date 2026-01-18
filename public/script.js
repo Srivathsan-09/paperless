@@ -1504,7 +1504,11 @@ function renderSummaryList() {
                     ${filteredEntries.length > 0 ? filteredEntries.map(e => {
             const dateObj = new Date(e.date);
             const day = dateObj.getDate();
-            const month = dateObj.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+            const month = dateObj.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+
+            // Default to Cash if missing
+            const mode = e.paymentMode || 'Cash';
+
             return `
                             <div class="ss-history-row" style="cursor: pointer;" onclick="handleSummaryClick('${(e.categoryName || '').replace(/'/g, "\\'")}', '${e.categoryId}', '${(e.itemName || '').replace(/'/g, "\\'")}')">
                                 <div class="ss-date-pill">
@@ -1514,14 +1518,18 @@ function renderSummaryList() {
                                 <div style="display: flex; flex-direction: column; flex: 1; margin-left: 1rem;">
                                     <div style="display: flex; align-items: center;">
                                         <span class="ss-item-name">${e.itemName || e.notes || 'Expense'}</span>
-                                        ${e.paymentMode ? `<span class="payment-mode-badge ${e.paymentMode.toLowerCase()}">${e.paymentMode}</span>` : ''}
+                                        <span class="payment-mode-badge ${mode.toLowerCase()}">${mode}</span>
                                     </div>
                                     <!-- Optional: Show category name below if needed, but user asked for badge box -->
                                 </div>
                                 <span class="ss-item-amount">₹${e.amount.toLocaleString()}</span>
                             </div>
                         `;
-        }).join('') : `<p style="text-align: center; color: var(--text-muted); padding: 1rem;">No transactions found for ${filter}.</p>`}
+        }).join('') : `
+                        <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                            No entries for this month.
+                        </div>
+                    `}
                 </div>
             </div>
         `;
