@@ -1709,6 +1709,19 @@ async function renderGenericForm(container, subName, categoryId, customBackActio
 
 async function renderSubcategoryHistory(container, subName, categoryId) {
     const monthStr = `${STATE.selectedYear}-${String(STATE.selectedMonth + 1).padStart(2, '0')}`;
+
+    // Loading State
+    container.innerHTML = `
+        <div class="history-loading-state" style="display: flex; align-items: center; justify-content: center; height: 200px; color: var(--text-muted);">
+            <div style="text-align: center;">
+                <svg class="spinner" viewBox="0 0 50 50" style="width: 24px; height: 24px; animation: spin 1s linear infinite; margin-bottom: 8px;">
+                    <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="5"></circle>
+                </svg>
+                <p style="font-size: 0.9rem; margin: 0;">Loading entries...</p>
+            </div>
+        </div>
+    `;
+
     let history = [];
     try {
         history = await fetchAPI(`/api/entries?categoryId=${categoryId}&month=${monthStr}&_t=${Date.now()}`);
