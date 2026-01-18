@@ -4299,6 +4299,22 @@ body:has(.login-view) {
     gap: 0.2rem;
 }
 
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.history-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+    /* Grow to push right side */
+}
+
 .history-empty-state {
     flex: 1;
     /* Fill remaining space */
