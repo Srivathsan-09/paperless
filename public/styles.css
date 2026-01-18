@@ -6305,3 +6305,44 @@ body:has(.login-view) {
         max-height: 85vh !important;
     }
 }
+
+/* --- FIXES 2026-01-18 --- */
+
+/* Fix Payment Entry Field Size Equality */
+#formAmount,
+.custom-select-trigger {
+    height: 50px !important;
+    /* Force equality to prevent slight mismatch */
+    box-sizing: border-box !important;
+}
+
+@media (max-width: 640px) {
+
+    /* Reduce space below Save Entry button (except Milk) */
+    .entry-view-container {
+        gap: 0.1rem !important;
+        /* Aggressive reduction */
+    }
+
+    .entry-full-btn {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* Pull Recent Expenses Box Upwards even more */
+    .entry-history-card {
+        margin-top: 0.25rem !important;
+        padding-top: 0 !important;
+    }
+
+    /* Fix First Entry Overflowing Top of Container */
+    /* Add padding to the scroll container or list so the first item isn't cut off by overflow */
+    .history-scroller {
+        padding-top: 0.5rem !important;
+    }
+
+    .history-list {
+        padding-top: 2px;
+        /* Small buffer */
+    }
+}

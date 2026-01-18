@@ -1737,7 +1737,21 @@ async function deleteEntry(id, subName, categoryId) {
         try {
             await fetchAPI(`/api/entries/${id}`, { method: 'DELETE' });
             showToast('Deleted successfully', 'success');
-            // Refresh current view
+
+            // SMART REFRESH: If history list exists, just update it to prevent form blink/reset
+            const genHistory = document.getElementById('genHistory');
+            const ebHistory = document.getElementById('ebHistory');
+
+            if (genHistory && document.body.contains(genHistory) && subName !== 'Milk' && subName !== 'EB Bill') {
+                await renderSubcategoryHistory(genHistory, subName, categoryId);
+                return;
+            }
+            if (ebHistory && document.body.contains(ebHistory) && subName === 'EB Bill') {
+                await renderSubcategoryHistory(ebHistory, 'EB Bill', categoryId);
+                return;
+            }
+
+            // Fallback: Full Refresh
             const overlay = document.getElementById('moduleOverlay');
             const isOverlay = overlay && overlay.classList.contains('active');
             const container = isOverlay ? document.getElementById('panelContent') : document.getElementById('categoryToolContainer');
