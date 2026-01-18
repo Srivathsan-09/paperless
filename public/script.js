@@ -788,10 +788,25 @@ function getUniversalFormHTML(config) {
                         <div class="form-col-payment">
                             <div class="form-group">
                                 <label>Payment</label>
-                                <select id="formPaymentMode" class="form-select">
-                                    <option value="Cash" selected>Cash</option>
-                                    <option value="UPI">UPI</option>
-                                </select>
+                                <!-- Custom Dropdown Trigger -->
+                                <div class="custom-select-container" id="paymentCustomSelect">
+                                    <input type="hidden" id="formPaymentMode" value="Cash">
+                                    <button type="button" class="custom-select-trigger" onclick="togglePaymentDropdown(event)">
+                                        <span id="paymentSelectedText">Cash</span>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    </button>
+                                    
+                                    <div class="custom-options-list" id="paymentOptionsList">
+                                        <div class="custom-option selected" onclick="selectPaymentOption('Cash')">
+                                            <span>Cash</span>
+                                            <div class="radio-circle"></div>
+                                        </div>
+                                        <div class="custom-option" onclick="selectPaymentOption('UPI')">
+                                            <span>UPI</span>
+                                            <div class="radio-circle"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1395,8 +1410,49 @@ function toggleFilterMenu(e) {
     }
 }
 
-// Close menu when clicking outside
+function togglePaymentDropdown(e) {
+    if (e) e.stopPropagation();
+    const list = document.getElementById('paymentOptionsList');
+    if (list) {
+        // Close others
+        document.querySelectorAll('.custom-options-list').forEach(l => {
+            if (l !== list) l.classList.remove('active');
+        });
+        list.classList.toggle('active');
+    }
+}
+
+function selectPaymentOption(val) {
+    const input = document.getElementById('formPaymentMode');
+    const display = document.getElementById('paymentSelectedText');
+    const list = document.getElementById('paymentOptionsList');
+
+    if (input) input.value = val;
+    if (display) display.textContent = val;
+
+    if (list) {
+        list.classList.remove('active');
+        // Update visual selection
+        const options = list.querySelectorAll('.custom-option');
+        options.forEach(opt => {
+            if (opt.textContent.trim().startsWith(val)) {
+                opt.classList.add('selected');
+            } else {
+                opt.classList.remove('selected');
+            }
+        });
+    }
+}
+
+// Close Dropdowns on outside click (Generic)
 document.addEventListener('click', (e) => {
+    // Payment Dropdown
+    if (!e.target.closest('.custom-select-container')) {
+        const list = document.getElementById('paymentOptionsList');
+        if (list) list.classList.remove('active');
+    }
+
+    // Summary Filter Menu
     if (!e.target.closest('.filter-icon-btn') && !e.target.closest('.filter-menu')) {
         document.querySelectorAll('.filter-menu').forEach(m => m.classList.remove('active'));
     }
@@ -1456,8 +1512,11 @@ function renderSummaryList() {
                                     <span class="m">${month}</span>
                                 </div>
                                 <div style="display: flex; flex-direction: column; flex: 1; margin-left: 1rem;">
-                                    <span class="ss-item-name">${e.itemName || e.notes || 'Expense'}</span>
-                                    ${e.paymentMode ? `<span style="font-size: 0.75rem; color: var(--text-muted);">${e.paymentMode}</span>` : ''}
+                                    <div style="display: flex; align-items: center;">
+                                        <span class="ss-item-name">${e.itemName || e.notes || 'Expense'}</span>
+                                        ${e.paymentMode ? `<span class="payment-mode-badge ${e.paymentMode.toLowerCase()}">${e.paymentMode}</span>` : ''}
+                                    </div>
+                                    <!-- Optional: Show category name below if needed, but user asked for badge box -->
                                 </div>
                                 <span class="ss-item-amount">₹${e.amount.toLocaleString()}</span>
                             </div>
