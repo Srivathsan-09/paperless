@@ -4305,6 +4305,8 @@ body:has(.login-view) {
     align-items: center;
     padding: 0.8rem 0;
     border-bottom: 1px solid var(--border-light);
+    width: 100%;
+    /* Ensure full width */
 }
 
 .history-left {
@@ -4339,6 +4341,8 @@ body:has(.login-view) {
     display: flex;
     align-items: center;
     gap: 1rem;
+    margin-left: auto !important;
+    /* Force right push */
 }
 
 .spending-summary-panel {

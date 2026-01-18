@@ -896,6 +896,30 @@ async function renderDashboard() {
         return [];
     });
 
+    // RENDER LOADING STATE IMMEDIATELY
+    // Only if not already present or if we want to ensure feedback
+    main.innerHTML = `
+        <div class="category-grid" id="dashboardLoadingGrid">
+             <div class="loading-state-container" style="grid-column: 1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 3rem; color: var(--text-muted); min-height: 200px;">
+                 <svg class="spinner" viewBox="0 0 50 50" style="width: 32px; height: 32px; animation: spin 1s linear infinite; margin-bottom: 12px;">
+                    <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="5"></circle>
+                </svg>
+                 <p style="margin:0; font-weight:500;">Loading categories...</p>
+             </div>
+        </div>
+        
+        <div class="stats-container">
+            <div class="stat-card">
+                <h3>Total Monthly Spending</h3>
+                <div class="value" id="dashboardTotalValue"><span style="font-size: 1rem; color: var(--text-muted);">Loading...</span></div>
+                <div class="trend">
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                    Current Month Status
+                </div>
+            </div>
+        </div>
+    `;
+
     // Fetch categories for dashboard (Critical Path)
     // Optimization: Request only dashboard items from backend to reduce payload
     let categories = await fetchCategories('', true);
