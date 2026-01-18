@@ -8,7 +8,7 @@ const verifyToken = require('../middleware/verifyToken');
 // @desc    Save entry from any “Save” button in UI
 router.post('/', verifyToken, async (req, res) => {
     try {
-        const { categoryId, amount, date, itemName, notes, quantity, metadata, pricePerLitre, morningLitres, nightLitres } = req.body;
+        const { categoryId, amount, date, itemName, notes, quantity, metadata, pricePerLitre, morningLitres, nightLitres, paymentMode } = req.body;
 
         const newEntry = new Entry({
             userId: req.user._id,
@@ -21,7 +21,8 @@ router.post('/', verifyToken, async (req, res) => {
             metadata,
             pricePerLitre,
             morningLitres,
-            nightLitres
+            nightLitres,
+            paymentMode
         });
 
         const entry = await newEntry.save();
@@ -36,7 +37,7 @@ router.post('/', verifyToken, async (req, res) => {
 // @desc    Update a specific entry
 router.put('/:id', verifyToken, async (req, res) => {
     try {
-        const { amount, date, itemName, notes, quantity, metadata, pricePerLitre, morningLitres, nightLitres } = req.body;
+        const { amount, date, itemName, notes, quantity, metadata, pricePerLitre, morningLitres, nightLitres, paymentMode } = req.body;
 
         const entry = await Entry.findOneAndUpdate(
             { _id: req.params.id, userId: req.user._id },
@@ -50,7 +51,8 @@ router.put('/:id', verifyToken, async (req, res) => {
                     metadata,
                     pricePerLitre,
                     morningLitres,
-                    nightLitres
+                    nightLitres,
+                    paymentMode
                 }
             },
             { new: true }

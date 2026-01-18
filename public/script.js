@@ -1609,7 +1609,15 @@ async function renderEBBillForm(container, categoryId, customBackAction = null) 
 
         const success = await addEntry(entry);
         if (success) {
-            renderEBBillForm(container, categoryId);
+            const histContainer = document.getElementById('ebHistory');
+            if (histContainer) {
+                await renderSubcategoryHistory(histContainer, 'EB Bill', categoryId);
+                document.getElementById('universalForm').reset();
+                const today = new Date().toISOString().split('T')[0];
+                if (document.getElementById('formDate')) document.getElementById('formDate').value = today;
+            } else {
+                renderEBBillForm(container, categoryId);
+            }
         }
     });
 }
@@ -1677,10 +1685,23 @@ async function renderGenericForm(container, subName, categoryId, customBackActio
 
         const success = await addEntry(entry);
         if (success) {
-            // Small delay to ensure DB sync and forced fresh fetch
-            setTimeout(() => {
+            // SMART REFRESH: Only update the history list
+            const histContainer = document.getElementById('genHistory');
+            if (histContainer && !hideHistory) {
+                await renderSubcategoryHistory(histContainer, subName, categoryId);
+
+                // Clear form values manually
+                document.getElementById('universalForm').reset();
+                // Restore defaults/dates if needed (retain date, reset amount)
+                const today = new Date().toISOString().split('T')[0];
+                if (document.getElementById('formDate')) document.getElementById('formDate').value = today;
+                // Keep payment mode as is or reset? User said "make cash as default only if user doesnt select either".
+                // BUT if they just added an entry, maybe they doing batch? 
+                // Actually, standard behavior is reset form.
+
+            } else {
                 renderGenericForm(container, subName, categoryId, onBack, hideHistory);
-            }, 200);
+            }
         }
     });
 }

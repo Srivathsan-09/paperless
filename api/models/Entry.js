@@ -41,6 +41,10 @@ const entrySchema = new mongoose.Schema({
     },
     metadata: {
         type: mongoose.Schema.Types.Mixed
+    },
+    paymentMode: {
+        type: String,
+        default: 'Cash'
     }
 }, { timestamps: true });
 
