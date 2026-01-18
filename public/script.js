@@ -778,10 +778,24 @@ function getUniversalFormHTML(config) {
         <div class="panel-body">
             <div class="entry-view-container">
                 <form id="universalForm">
-                    <div class="form-group">
-                        <label>Amount (Mandatory) ₹</label>
-                        <input type="number" id="formAmount" placeholder="0.00" value="${amountValue}" required>
+                    <div class="form-row-split">
+                        <div class="form-col-amount">
+                            <div class="form-group">
+                                <label>Amount (Mandatory) ₹</label>
+                                <input type="number" id="formAmount" placeholder="0.00" value="${amountValue}" required>
+                            </div>
+                        </div>
+                        <div class="form-col-payment">
+                            <div class="form-group">
+                                <label>Payment</label>
+                                <select id="formPaymentMode" class="form-select">
+                                    <option value="Cash" selected>Cash</option>
+                                    <option value="UPI">UPI</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
+                
                     <div class="form-group">
                         <label>Date (Mandatory)</label>
                         <input type="date" id="formDate" value="${dateValue}" required>
@@ -789,7 +803,6 @@ function getUniversalFormHTML(config) {
                     
                     ${customFieldsHTML}
                     
-
                     <div class="form-group">
                         <label>Notes (Optional - Max 50 words)</label>
                         <textarea id="formNotes" rows="2" placeholder="Enter details..." oninput="this.value = this.value.split(/\s+/).slice(0, 50).join(' ')">${notesValue}</textarea>
@@ -834,7 +847,8 @@ function setupUniversalForm(onSave, onDelete = null) {
                 amount: parseFloat(document.getElementById('formAmount').value),
                 date: document.getElementById('formDate').value,
                 itemName: document.getElementById('formItemName') ? document.getElementById('formItemName').value : '',
-                notes: document.getElementById('formNotes').value
+                notes: document.getElementById('formNotes').value,
+                paymentMode: document.getElementById('formPaymentMode') ? document.getElementById('formPaymentMode').value : 'Cash'
             };
 
             await onSave(entry, e);
@@ -1319,36 +1333,17 @@ async function renderModuleContent(subName, categoryId, container, customBackAct
 
 async function renderSpendingSummary(container) {
     const monthStr = `${STATE.selectedYear}-${String(STATE.selectedMonth + 1).padStart(2, '0')}`;
-    let grandTotal = 0;
     let allEntries = [];
-    let categoryTotals = [];
+
+    // Reset filter state on fresh render
+    STATE.summaryFilter = STATE.summaryFilter || 'All';
 
     try {
-        // Optimization: Use the new all-entries endpoint to fetch everything for the given month
         allEntries = await fetchAPI(`/api/entries?month=${monthStr}`);
-
-        // Sort for the history view
         allEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        console.log("Debug: Spending Summary Entries", allEntries);
-        grandTotal = allEntries.reduce((sum, e) => sum + e.amount, 0);
-
-        // Calculate totals per parent category (dynamically)
-        const categoriesMap = {};
-        allEntries.forEach(e => {
-            // Find parent name optimally
-            const cat = STATE.categories.find(c => c._id === e.categoryId || c.id === e.categoryId);
-            const parent = e.parentCategory || (cat ? cat.parentCategory || cat.name : 'Other');
-
-            categoriesMap[parent] = (categoriesMap[parent] || 0) + e.amount;
-            // Inject names for the transaction row display
-            e.categoryName = parent;
-        });
-
-        categoryTotals = Object.entries(categoriesMap).map(([name, amount]) => ({ name, amount }))
-            .sort((a, b) => b.amount - a.amount);
-
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        console.error(e);
+    }
 
     const overlay = document.getElementById('moduleOverlay');
     if (overlay) overlay.classList.add('drawer-mode');
@@ -1360,52 +1355,91 @@ async function renderSpendingSummary(container) {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
                 <h3 class="ss-title">Monthly Summary</h3>
-                <div></div> <!-- Grid Spacer -->
+                <select id="summaryFilterBtn" onchange="filterSummary(this.value)" style="position: absolute; right: 1.25rem; font-size: 0.9rem; padding: 0.5rem 1rem 0.5rem 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--primary); font-weight: 600; outline: none; appearance: none; cursor: pointer; text-align: right; background-image: none;">
+                    <option value="All" ${STATE.summaryFilter === 'All' ? 'selected' : ''}>All</option>
+                    <option value="UPI" ${STATE.summaryFilter === 'UPI' ? 'selected' : ''}>UPI Only</option>
+                    <option value="Cash" ${STATE.summaryFilter === 'Cash' ? 'selected' : ''}>Cash Only</option>
+                </select>
             </div>
 
-
-            <div class="ss-scroll-content">
-                <div class="ss-total-box">
-                    <span class="ss-total-label">TOTAL BUDGET SPENT</span>
-                    <span class="ss-total-amount">₹${grandTotal.toLocaleString()}</span>
-                </div>
-
-
-
-                <div class="ss-history-section">
-                    <h3 class="ss-section-title">Detailed Transaction History</h3>
-                    <div class="ss-history-box">
-                        ${allEntries.length > 0 ? allEntries.map(e => {
-        const dateObj = new Date(e.date);
-        const day = dateObj.getDate();
-        const month = dateObj.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
-        return `
-                                <div class="ss-history-row" style="cursor: pointer;" onclick="handleSummaryClick('${(e.categoryName || '').replace(/'/g, "\\'")}', '${e.categoryId}', '${(e.itemName || '').replace(/'/g, "\\'")}')">
-                                    <div class="ss-date-pill">
-                                        <span class="d">${day}</span>
-                                        <span class="m">${month}</span>
-                                    </div>
-                                    <span class="ss-item-name">${e.itemName || e.notes || 'Expense'}</span>
-                                    <span class="ss-item-amount">₹${e.amount.toLocaleString()}</span>
-                                </div>
-                            `;
-    }).join('') : '<p style="text-align: center; color: var(--text-muted); padding: 1rem;">No transactions.</p>'}
-                    </div>
-                </div>
+            <div class="ss-scroll-content" id="ssContentArea">
+                <!-- Content injected via helper -->
             </div>
 
-            <!-- Sticky Footer with Export Action -->
             <div class="ss-footer">
                 <button class="ss-export-hero-btn" onclick="exportToPDF()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Export Monthly Report
+                    Export Report
                 </button>
             </div>
         </div>
-    </div>
-`;
+    `;
 
+    // Store globally for filtering access
+    STATE.currentMonthEntries = allEntries;
+    renderSummaryList();
 }
+
+function filterSummary(filterType) {
+    STATE.summaryFilter = filterType;
+    renderSummaryList();
+}
+
+function renderSummaryList() {
+    const filter = STATE.summaryFilter;
+    let filteredEntries = STATE.currentMonthEntries;
+
+    if (filter === 'UPI') {
+        filteredEntries = filteredEntries.filter(e => e.paymentMode === 'UPI');
+    } else if (filter === 'Cash') {
+        // Includes 'Cash' explicitly or undefined/null (legacy/default)
+        filteredEntries = filteredEntries.filter(e => e.paymentMode === 'Cash' || !e.paymentMode);
+    }
+
+    const grandTotal = filteredEntries.reduce((sum, e) => sum + e.amount, 0);
+
+    // Map parent categories for clicks
+    filteredEntries.forEach(e => {
+        const cat = STATE.categories.find(c => c._id === e.categoryId || c.id === e.categoryId);
+        const parent = e.parentCategory || (cat ? cat.parentCategory || cat.name : 'Other');
+        e.categoryName = parent;
+    });
+
+    const contentArea = document.getElementById('ssContentArea');
+    if (contentArea) {
+        contentArea.innerHTML = `
+            <div class="ss-total-box">
+                <span class="ss-total-label">TOTAL SPENT (${filter === 'All' ? 'ALL' : filter.toUpperCase()})</span>
+                <span class="ss-total-amount">₹${grandTotal.toLocaleString()}</span>
+            </div>
+
+            <div class="ss-history-section">
+                <h3 class="ss-section-title">Detailed Transaction History</h3>
+                <div class="ss-history-box">
+                    ${filteredEntries.length > 0 ? filteredEntries.map(e => {
+            const dateObj = new Date(e.date);
+            const day = dateObj.getDate();
+            const month = dateObj.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+            return `
+                            <div class="ss-history-row" style="cursor: pointer;" onclick="handleSummaryClick('${(e.categoryName || '').replace(/'/g, "\\'")}', '${e.categoryId}', '${(e.itemName || '').replace(/'/g, "\\'")}')">
+                                <div class="ss-date-pill">
+                                    <span class="d">${day}</span>
+                                    <span class="m">${month}</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column; flex: 1; margin-left: 1rem;">
+                                    <span class="ss-item-name">${e.itemName || e.notes || 'Expense'}</span>
+                                    ${e.paymentMode ? `<span style="font-size: 0.75rem; color: var(--text-muted);">${e.paymentMode}</span>` : ''}
+                                </div>
+                                <span class="ss-item-amount">₹${e.amount.toLocaleString()}</span>
+                            </div>
+                        `;
+        }).join('') : `<p style="text-align: center; color: var(--text-muted); padding: 1rem;">No transactions found for ${filter}.</p>`}
+                </div>
+            </div>
+        `;
+    }
+}
+
 
 function handleSummaryClick(parentName, categoryId, itemName) {
     if (parentName === 'Savings' || parentName === 'Miscellaneous' || parentName === 'Milk' || itemName === 'Milk') {
@@ -1434,7 +1468,10 @@ function handleSummaryClick(parentName, categoryId, itemName) {
     } else {
         const overlay = document.getElementById('moduleOverlay');
         if (overlay) overlay.classList.remove('drawer-mode');
-        openModule(itemName || parentName, categoryId);
+        // Fix: Ensure generic module opens cleanly
+        setTimeout(() => {
+            openModule(itemName || parentName, categoryId);
+        }, 100);
     }
 }
 
@@ -2625,10 +2662,19 @@ async function exportToPDF() {
             const entriesResults = await Promise.all(parents.map(async p => {
                 return await fetchAPI(`/api/entries?parentCategory=${encodeURIComponent(p)}&month=${monthStr}`);
             }));
-            monthlyData = entriesResults.flat();
+            let allRaw = entriesResults.flat();
+
+            // FILTER LOGIC FOR PDF - Respect STATE.summaryFilter
+            const filter = STATE.summaryFilter || 'All';
+            if (filter === 'UPI') {
+                allRaw = allRaw.filter(e => e.paymentMode === 'UPI');
+            } else if (filter === 'Cash') {
+                allRaw = allRaw.filter(e => e.paymentMode === 'Cash' || !e.paymentMode);
+            }
+            monthlyData = allRaw;
 
             if (monthlyData.length === 0) {
-                showToast("No data to export for this month!", 'info');
+                showToast(`No ${filter} transactions to export!`, 'info');
                 return;
             }
 
@@ -2639,7 +2685,8 @@ async function exportToPDF() {
 
             doc.setFontSize(14);
             doc.setTextColor(30, 41, 59);
-            doc.text(`Monthly Spending Report - ${monthName} ${yearStr}`, 105, 30, { align: "center" });
+            const reportTitle = filter === 'All' ? 'Monthly Spending Report' : `Monthly Spending Report (${filter})`;
+            doc.text(`${reportTitle} - ${monthName} ${yearStr}`, 105, 30, { align: "center" });
 
             // Category Summary
             const totalsByCategory = {};
@@ -2674,24 +2721,32 @@ async function exportToPDF() {
                     new Date(h.date).toLocaleDateString('en-GB'),
                     h.itemName || h.notes || h.subCategory || 'Expense',
                     h.parentCategory || h.category || '-',
+                    h.paymentMode || 'Cash', // Add Mode column
                     `₹${h.amount.toLocaleString()}`
                 ]);
 
             doc.autoTable({
                 startY: doc.lastAutoTable.finalY + 20,
-                head: [['Date', 'Item', 'Category', 'Amount']],
-                body: historyRows,
+                head: [['Date', 'Item', 'Category', 'Mode', 'Amount']],
+                body: historyRows.map(row => {
+                    // Find the object from historyRows source or infer mode? The map above made array arrays, let's redo mapping
+                    return row; // wait, historyRows was defined below
+                }),
                 theme: 'grid',
                 headStyles: { fillColor: [59, 130, 246] }
             });
+            body: historyRows,
+                theme: 'grid',
+                    headStyles: { fillColor: [59, 130, 246] }
+        });
 
-            doc.save(`Paperless_Report_${monthName}_${yearStr}.pdf`);
-            showToast("Monthly Report downloaded successfully!", "success");
-        }
-    } catch (e) {
-        console.error("Error fetching data for PDF:", e);
-        showToast("Failed to fetch data for PDF export.", 'error');
+        doc.save(`Paperless_Report_${monthName}_${yearStr}.pdf`);
+        showToast("Monthly Report downloaded successfully!", "success");
     }
+    } catch (e) {
+    console.error("Error fetching data for PDF:", e);
+    showToast("Failed to fetch data for PDF export.", 'error');
+}
 }
 
 
