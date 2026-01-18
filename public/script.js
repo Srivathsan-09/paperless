@@ -2728,25 +2728,18 @@ async function exportToPDF() {
             doc.autoTable({
                 startY: doc.lastAutoTable.finalY + 20,
                 head: [['Date', 'Item', 'Category', 'Mode', 'Amount']],
-                body: historyRows.map(row => {
-                    // Find the object from historyRows source or infer mode? The map above made array arrays, let's redo mapping
-                    return row; // wait, historyRows was defined below
-                }),
+                body: historyRows,
                 theme: 'grid',
                 headStyles: { fillColor: [59, 130, 246] }
             });
-            body: historyRows,
-                theme: 'grid',
-                    headStyles: { fillColor: [59, 130, 246] }
-        });
 
-        doc.save(`Paperless_Report_${monthName}_${yearStr}.pdf`);
-        showToast("Monthly Report downloaded successfully!", "success");
-    }
+            doc.save(`Paperless_Report_${monthName}_${yearStr}.pdf`);
+            showToast("Monthly Report downloaded successfully!", "success");
+        }
     } catch (e) {
-    console.error("Error fetching data for PDF:", e);
-    showToast("Failed to fetch data for PDF export.", 'error');
-}
+        console.error("Error fetching data for PDF:", e);
+        showToast("Failed to fetch data for PDF export.", 'error');
+    }
 }
 
 
