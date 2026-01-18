@@ -4551,28 +4551,26 @@ body:has(.login-view) {
 
 .custom-select-trigger {
     width: 100%;
+    /* Match standard input padding exactly */
     padding: 0.75rem 1rem;
     border: 1px solid var(--border);
     border-radius: 14px;
     background: var(--card-bg);
     color: #000;
-    /* Force dark text as requested */
     font-size: 1rem;
     font-weight: 600;
-    /* Bolder text */
     outline: none;
     cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
     transition: var(--transition);
-    min-height: 48px;
-    /* Ensure match with standard inputs */
+    /* No forced min-height, rely on padding to match input */
+    height: 100%;
 }
 
 .dark-theme .custom-select-trigger {
     color: #fff;
-    /* White in dark mode */
 }
 
 .custom-select-trigger:focus {
@@ -4622,39 +4620,21 @@ body:has(.login-view) {
     background: var(--bg-hover);
 }
 
-.radio-circle {
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--text-muted);
-    border-radius: 50%;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
+.custom-option.selected {
+    background: var(--primary-light);
+    color: var(--primary);
 }
 
-.custom-option.selected .radio-circle {
-    border-color: var(--primary);
-    background: var(--primary);
-    /* Filled style */
+/* REDUCE SPACE BELOW SAVE ENTRY BUTTON */
+#universalForm .form-group:last-of-type {
+    margin-bottom: 0.5rem !important;
 }
 
-.radio-circle::after {
-    content: '';
-    width: 8px;
-    height: 8px;
-    background: #fff;
-    border-radius: 50%;
-    opacity: 0;
-    transform: scale(0);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+.entry-full-btn {
+    margin-bottom: 0 !important;
 }
 
-.custom-option.selected .radio-circle::after {
-    opacity: 1;
-    transform: scale(1);
-}
+/* End Reduction */
 
 /* Payment Mode Badge in Summary */
 .payment-mode-badge {

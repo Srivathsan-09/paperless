@@ -799,11 +799,9 @@ function getUniversalFormHTML(config) {
                                     <div class="custom-options-list" id="paymentOptionsList">
                                         <div class="custom-option selected" onclick="selectPaymentOption('Cash')">
                                             <span>Cash</span>
-                                            <div class="radio-circle"></div>
                                         </div>
                                         <div class="custom-option" onclick="selectPaymentOption('UPI')">
                                             <span>UPI</span>
-                                            <div class="radio-circle"></div>
                                         </div>
                                     </div>
                                 </div>
