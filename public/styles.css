@@ -4417,15 +4417,20 @@ body:has(.login-view) {
     }
 
     /* Reduce gaps in Mobile Entry Modal */
+    .entry-view-container {
+        gap: 0.5rem !important;
+        /* Aggressive reduction from 1.5rem */
+    }
+
     .entry-full-btn {
-        margin-top: 0.5rem !important;
-        /* Reduced from 1.5rem */
+        margin-top: 0.25rem !important;
+        /* Aggressive reduction */
     }
 
     .entry-history-card {
         margin-top: 0.5rem !important;
         /* Reduced from 1rem */
-        padding-top: 1rem !important;
+        padding-top: 0.5rem !important;
     }
 }
 
@@ -4468,6 +4473,74 @@ body:has(.login-view) {
 .form-select:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* Summary Filter UI */
+.ss-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.filter-icon-btn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.filter-icon-btn:active {
+    transform: scale(0.95);
+}
+
+.filter-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+    padding: 0.5rem;
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    min-width: 140px;
+}
+
+.filter-menu.active {
+    display: flex;
+    animation: fadeIn 0.2s ease;
+}
+
+.filter-option {
+    padding: 0.75rem 1rem;
+    border: none;
+    background: none;
+    text-align: left;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-main);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.2s;
+    font-size: 0.9rem;
+}
+
+.filter-option:hover {
+    background: var(--bg-color);
+}
+
+.filter-option.selected {
+    color: var(--primary);
+    background: var(--primary-light);
+    font-weight: 600;
 }
 
 @keyframes slideInRight {

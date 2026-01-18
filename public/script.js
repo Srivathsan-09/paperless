@@ -1355,11 +1355,7 @@ async function renderSpendingSummary(container) {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
                 <h3 class="ss-title">Monthly Summary</h3>
-                <select id="summaryFilterBtn" onchange="filterSummary(this.value)" style="position: absolute; right: 1.25rem; font-size: 0.9rem; padding: 0.5rem 1rem 0.5rem 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--primary); font-weight: 600; outline: none; appearance: none; cursor: pointer; text-align: right; background-image: none;">
-                    <option value="All" ${STATE.summaryFilter === 'All' ? 'selected' : ''}>All</option>
-                    <option value="UPI" ${STATE.summaryFilter === 'UPI' ? 'selected' : ''}>UPI Only</option>
-                    <option value="Cash" ${STATE.summaryFilter === 'Cash' ? 'selected' : ''}>Cash Only</option>
-                </select>
+                <div></div> <!-- Spacer -->
             </div>
 
             <div class="ss-scroll-content" id="ssContentArea">
@@ -1382,8 +1378,29 @@ async function renderSpendingSummary(container) {
 
 function filterSummary(filterType) {
     STATE.summaryFilter = filterType;
-    renderSummaryList();
+    renderSummaryList(); // Re-render content
 }
+
+function toggleFilterMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('filterMenu');
+    if (menu) {
+        const isActive = menu.classList.contains('active');
+        // Close others if needed
+        document.querySelectorAll('.filter-menu').forEach(m => m.classList.remove('active'));
+
+        if (!isActive) {
+            menu.classList.add('active');
+        }
+    }
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.filter-icon-btn') && !e.target.closest('.filter-menu')) {
+        document.querySelectorAll('.filter-menu').forEach(m => m.classList.remove('active'));
+    }
+});
 
 function renderSummaryList() {
     const filter = STATE.summaryFilter;
@@ -1414,7 +1431,19 @@ function renderSummaryList() {
             </div>
 
             <div class="ss-history-section">
-                <h3 class="ss-section-title">Detailed Transaction History</h3>
+                <div class="ss-history-header">
+                    <h3 class="ss-section-title" style="margin: 0;">Detailed Transaction History</h3>
+                    <div style="position: relative;">
+                         <button class="filter-icon-btn" onclick="toggleFilterMenu(event)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="${filter !== 'All' ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                        </button>
+                        <div class="filter-menu" id="filterMenu">
+                            <button class="filter-option ${filter === 'All' ? 'selected' : ''}" onclick="filterSummary('All')">All Transactions</button>
+                            <button class="filter-option ${filter === 'UPI' ? 'selected' : ''}" onclick="filterSummary('UPI')">UPI Only</button>
+                            <button class="filter-option ${filter === 'Cash' ? 'selected' : ''}" onclick="filterSummary('Cash')">Cash Only</button>
+                        </div>
+                    </div>
+                </div>
                 <div class="ss-history-box">
                     ${filteredEntries.length > 0 ? filteredEntries.map(e => {
             const dateObj = new Date(e.date);
