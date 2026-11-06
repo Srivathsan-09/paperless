@@ -178,6 +178,25 @@
             </div>
         </div>
 
+        <!-- Month Category & Subcategory Breakdown Modal -->
+        <div id="userMonthBreakdownModal" class="modal" onclick="if(event.target===this) closeUserMonthBreakdownModal()">
+            <div class="modal-content" style="max-width: 520px; width: 92%; padding: 24px; text-align: left; border-radius: 20px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                    <div>
+                        <h3 id="userMonthBreakdownTitle" style="margin: 0; font-size: 1.2rem; font-weight: 700; color: var(--text-main);">Month</h3>
+                        <div id="userMonthBreakdownSub" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 3px;">Category &amp; Subcategory Spending</div>
+                    </div>
+                    <button class="icon-btn" onclick="closeUserMonthBreakdownModal()" style="font-size: 1.4rem; line-height: 1; padding: 4px 8px; border: none; background: transparent; cursor: pointer; color: var(--text-muted);" aria-label="Close">&times;</button>
+                </div>
+                <div id="userMonthBreakdownContent" style="max-height: 380px; overflow-y: auto;">
+                    <!-- Content will be rendered here -->
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    <button class="action-btn secondary" style="padding: 6px 16px;" onclick="closeUserMonthBreakdownModal()">Close</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Global Overlay for Forms/Modules -->
         <div id="moduleOverlay" class="panel-overlay">
             <div class="panel-content">

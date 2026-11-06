@@ -14,31 +14,8 @@ const STATE = {
     activeSubcategory: null,
     data: [],
     tempMilkData: [], // Cache for milk entries
-    categories: [
-
-        { id: 'daily', name: 'Daily Expenses', icon: 'zap' },
-        { id: 'utilities', name: 'Utilities & Bills', icon: 'file-text' },
-        { id: 'groceries', name: 'Groceries', icon: 'shopping-cart' },
-        { id: 'maintenance', name: 'House Maintenance', icon: 'home' },
-        { id: 'education', name: 'Education', icon: 'book' },
-        { id: 'health', name: 'Health', icon: 'activity' },
-        { id: 'transport', name: 'Transportation', icon: 'truck' },
-        { id: 'events', name: 'Occasional & Events', icon: 'gift' },
-        { id: 'subscriptions', name: 'Subscriptions', icon: 'repeat' },
-        { id: 'misc', name: 'Miscellaneous', icon: 'more-horizontal' }
-    ],
-    subcategories: {
-        'daily': ['Milk', 'Newspaper', 'Fruits & Vegetables', 'Water Can'],
-        'utilities': ['EB Bill', 'Mobile Recharge', 'Internet/Wi-Fi', 'Gas Cylinder'],
-        'groceries': ['Supermarket / Monthly Shopping', 'Local Grocery Store', 'Dairy Products'],
-        'maintenance': ['Plumbing/Electrical', 'Cleaning Supplies', 'Gardening'],
-        'education': ['School/College Fees', 'Books & Stationery', 'Courses/Tuition'],
-        'health': ['Medicines', 'Doctor Consultations', 'Lab Tests'],
-        'transport': ['Fuel (Petrol/Diesel)', 'Public Transport', 'Vehicle Service'],
-        'events': ['Festivals', 'Birthdays', 'Wedding/Parties'],
-        'subscriptions': ['OTT Apps (Netflix/Prime)', 'Gym Membership', 'Insurance Premiums'],
-        'misc': ['Small Spends', 'General Expense', 'Others']
-    },
+    categories: [],
+    subcategories: {},
     isLeaf: false,
     isAutoOpened: false
 };
@@ -2499,6 +2476,12 @@ async function renderAnalytics() {
         const currentMonthStr = `${STATE.selectedYear}-${String(STATE.selectedMonth + 1).padStart(2, '0')}`;
         const currentMonthData = await fetchAPI(`/api/entries?month=${currentMonthStr}`);
 
+        // Monthly Trend (12 Months)
+        const trendData = await fetchAPI('/api/entries/monthly-trend').catch(err => {
+            console.error('Failed to fetch monthly trend:', err);
+            return [];
+        });
+
         // Previous Month
         let prevM = STATE.selectedMonth - 1;
         let prevY = STATE.selectedYear;
@@ -2508,9 +2491,29 @@ async function renderAnalytics() {
 
         // 2. Process Data
 
-        // Chart 1: Monthly Comparison
+        // Chart 1: Monthly Spending Trend across 12 months for selected year
+        const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+        const yearShort = String(STATE.selectedYear).slice(-2);
+        const trendMap = {};
+        if (Array.isArray(trendData)) {
+            trendData.forEach(t => {
+                if (t && t.month) trendMap[t.month] = t;
+            });
+        }
+
+        const trendLabels = [];
+        const trendValues = [];
+        const trendMonthNums = [];
+
+        for (let m = 1; m <= 12; m++) {
+            const key = `${STATE.selectedYear}-${String(m).padStart(2, '0')}`;
+            trendLabels.push(`${shortMonthNames[m - 1]} ${yearShort}`);
+            trendValues.push(trendMap[key] ? (trendMap[key].total || 0) : 0);
+            trendMonthNums.push(m);
+        }
+
         const currentTotal = currentMonthData.reduce((sum, e) => sum + e.amount, 0);
-        const prevTotal = prevMonthData.reduce((sum, e) => sum + e.amount, 0);
+        const yearTotal = trendValues.reduce((sum, v) => sum + v, 0);
 
         // Chart 2: Category Distribution (Current Month)
         // Need to map IDs to Names if necessary, but fetch API usually populates names or we have STATE.categories
@@ -2554,14 +2557,16 @@ async function renderAnalytics() {
         const prevMonthName = MONTHS[prevM];
 
         // Empty State Handler
-        if (currentMonthData.length === 0 && prevMonthData.length === 0) {
+        const hasAnyYearData = trendValues.some(v => v > 0);
+        const hasAnyHistoryData = Array.isArray(trendData) && trendData.some(t => (t.total || 0) > 0);
+        if (!hasAnyYearData && !hasAnyHistoryData && currentMonthData.length === 0) {
             main.innerHTML = `
                 <div class="analytics-empty-state">
                     <div class="empty-icon">
                         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
                     </div>
                     <h3>No Data Available</h3>
-                    <p>There are no expenses recorded for ${currentMonthName} or ${prevMonthName}.</p>
+                    <p>There are no expenses recorded yet.</p>
                     <button class="action-btn primary" onclick="renderDashboard()">Go to Dashboard</button>
                 </div>
             `;
@@ -2576,11 +2581,14 @@ async function renderAnalytics() {
                 </div>
 
                 <div class="charts-grid">
-                    <!-- Monthly Comparison -->
+                    <!-- Monthly Spending Trend (12 Months, Clickable) -->
                     <div class="chart-card">
                         <div class="chart-header">
-                            <h3>Monthly Comparison</h3>
-                            <p>Total Spent: <span class="${currentTotal > prevTotal ? 'trend-up' : 'trend-down'}">₹${currentTotal.toLocaleString()}</span></p>
+                            <div>
+                                <h3>Monthly Spending Trend</h3>
+                                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Click bar to view category breakdown</p>
+                            </div>
+                            <p>Year Total: <span style="font-weight: 700; color: var(--primary);">₹${yearTotal.toLocaleString('en-IN')}</span></p>
                         </div>
                         <div class="chart-canvas-wrapper">
                             <canvas id="comparisonChart"></canvas>
@@ -2591,7 +2599,7 @@ async function renderAnalytics() {
                     <div class="chart-card">
                         <div class="chart-header">
                             <h3>Expense Distribution</h3>
-                            <p>By Category</p>
+                            <p>${currentMonthName} ${STATE.selectedYear}</p>
                         </div>
                         <div class="chart-canvas-wrapper">
                             <canvas id="distributionChart"></canvas>
@@ -2602,7 +2610,7 @@ async function renderAnalytics() {
                     <div class="chart-card full-width">
                         <div class="chart-header">
                             <h3>Spending Trend</h3>
-                            <p>Daily breakdown for ${currentMonthName}</p>
+                            <p>Daily breakdown for ${currentMonthName} ${STATE.selectedYear}</p>
                         </div>
                         <div class="chart-canvas-wrapper wide">
                             <canvas id="trendChart"></canvas>
@@ -2657,34 +2665,66 @@ async function renderAnalytics() {
         const textColor = document.body.classList.contains('dark-theme') ? '#cbd5e1' : '#64748b';
         const gridColor = document.body.classList.contains('dark-theme') ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
 
-        // Chart 1: Comparison
+        // Chart 1: Monthly Spending Trend (12 Months, Clickable)
+        const isDark = document.body.classList.contains('dark-theme');
+        const barBg = isDark ? 'rgba(96, 165, 250, 0.55)' : 'rgba(99, 102, 241, 0.65)';
+        const barBorder = isDark ? 'rgba(96, 165, 250, 1)' : 'rgba(99, 102, 241, 1)';
+        const barHoverBg = isDark ? 'rgba(124, 106, 247, 0.8)' : 'rgba(79, 70, 229, 0.85)';
+        const barHoverBorder = isDark ? 'rgba(124, 106, 247, 1)' : 'rgba(79, 70, 229, 1)';
+
         new Chart(document.getElementById('comparisonChart'), {
             type: 'bar',
             data: {
-                labels: [prevMonthName, currentMonthName],
+                labels: trendLabels,
                 datasets: [{
-                    label: 'Total Expenses',
-                    data: [prevTotal, currentTotal],
-                    backgroundColor: [
-                        'rgba(148, 163, 184, 0.7)', // Slate for previous
-                        'rgba(99, 102, 241, 0.8)'   // Primary for current
-                    ],
-                    borderRadius: 8,
-                    barPercentage: 0.6
+                    label: 'Monthly Spending',
+                    data: trendValues,
+                    backgroundColor: barBg,
+                    borderColor: barBorder,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    hoverBackgroundColor: barHoverBg,
+                    hoverBorderColor: barHoverBorder,
+                    barPercentage: 0.65
                 }]
             },
             options: {
                 ...commonOptions,
-                plugins: { ...commonOptions.plugins, legend: { display: false } }, // Hide legend for simple bar
+                onClick: (evt, elements) => {
+                    if (!elements || !elements.length) return;
+                    const index = elements[0].index;
+                    const clickedMonth = trendMonthNums[index];
+                    if (clickedMonth && typeof openUserMonthBreakdownModal === 'function') {
+                        openUserMonthBreakdownModal(STATE.selectedYear, clickedMonth);
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
+                plugins: {
+                    ...commonOptions.plugins,
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const val = context.parsed.y !== null ? context.parsed.y : context.raw;
+                                return `₹${Number(val).toLocaleString('en-IN')} (Click to view breakdown)`;
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
                         grid: { color: gridColor },
-                        ticks: { color: textColor }
+                        ticks: {
+                            color: textColor,
+                            callback: v => '₹' + Number(v).toLocaleString('en-IN')
+                        }
                     },
                     x: {
-                        grid: { display: false },
-                        ticks: { color: textColor }
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
                     }
                 }
             }
@@ -2758,6 +2798,125 @@ async function renderAnalytics() {
         main.innerHTML = `<div class="error-state"><p>Failed to load analytics data.</p><button onclick="renderAnalytics()">Retry</button></div>`;
     }
 }
+
+async function openUserMonthBreakdownModal(year, month) {
+    const modal = document.getElementById('userMonthBreakdownModal');
+    const titleEl = document.getElementById('userMonthBreakdownTitle');
+    const subEl = document.getElementById('userMonthBreakdownSub');
+    const contentEl = document.getElementById('userMonthBreakdownContent');
+    if (!modal) return;
+
+    titleEl.textContent = 'Loading…';
+    subEl.textContent = 'Category & Subcategory Breakdown';
+    contentEl.innerHTML = `
+        <div style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
+            <div class="spinner" style="width: 26px; height: 26px; margin: 0 auto 10px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <div style="font-size: 0.9rem;">Loading category breakdown…</div>
+        </div>
+    `;
+    modal.classList.add('active');
+
+    try {
+        const data = await fetchAPI(`/api/entries/monthly-breakdown?year=${year}&month=${month}`);
+        if (!data || !data.success) throw new Error(data?.message || 'Failed to fetch breakdown');
+
+        titleEl.textContent = data.monthName || `${month}/${year}`;
+        const formattedTotal = '₹' + Number(data.totalSpending || 0).toLocaleString('en-IN');
+        subEl.innerHTML = `Total Spending: <span style="font-weight: 700; color: var(--primary);">${formattedTotal}</span> &bull; ${data.entryCount || 0} entries`;
+
+        const { parentGroups = [], standalone = [], totalSpending = 0 } = data;
+
+        if (!parentGroups.length && !standalone.length) {
+            contentEl.innerHTML = `
+                <div style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
+                    <div style="font-size: 1.8rem; margin-bottom: 8px; opacity: 0.6;">📅</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">No spending in ${escapeHtml(data.monthName || `${month}/${year}`)}</div>
+                    <div style="font-size: 0.82rem;">Total spending for this month is ₹0</div>
+                </div>
+            `;
+            return;
+        }
+
+        let rowsHtml = '';
+
+        // 1. Parent categories with subcategories
+        for (const g of parentGroups) {
+            const gTotal = '₹' + Number(g.total || 0).toLocaleString('en-IN');
+            rowsHtml += `
+                <tr style="background: var(--primary-light); border-bottom: 1px solid var(--border);">
+                    <td style="padding: 10px 14px; font-weight: 700; color: var(--text-main);">
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 6px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">${escapeHtml(g.parentName)}</span>
+                    </td>
+                    <td style="padding: 10px 14px; text-align: right; font-weight: 700; color: var(--text-main); font-size: 0.95rem;">
+                        ${gTotal}
+                    </td>
+                </tr>
+            `;
+
+            for (const sub of (g.subcategories || [])) {
+                const subTotal = '₹' + Number(sub.total || 0).toLocaleString('en-IN');
+                rowsHtml += `
+                    <tr style="border-bottom: 1px solid var(--border);">
+                        <td style="padding: 8px 14px 8px 30px; font-weight: 500; color: var(--text-muted); font-size: 0.88rem;">
+                            <span style="color: var(--text-muted); opacity: 0.6; margin-right: 6px;">↳</span>${escapeHtml(sub.name)}
+                        </td>
+                        <td style="padding: 8px 14px; text-align: right; font-weight: 600; color: var(--success, #10b981); font-size: 0.88rem;">
+                            ${subTotal}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // 2. Standalone categories (no parent)
+        for (const s of standalone) {
+            const sTotal = '₹' + Number(s.total || 0).toLocaleString('en-IN');
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 11px 14px; font-weight: 500; color: var(--text-main);">
+                        ${escapeHtml(s.name)}
+                    </td>
+                    <td style="padding: 11px 14px; text-align: right; font-weight: 600; color: var(--success, #10b981); font-size: 0.95rem;">
+                        ${sTotal}
+                    </td>
+                </tr>
+            `;
+        }
+
+        const totalFormatted = '₹' + Number(totalSpending || 0).toLocaleString('en-IN');
+
+        contentEl.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="padding: 10px 14px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--bg-color);">Category / Subcategory</th>
+                        <th style="padding: 10px 14px; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--bg-color);">Amount Spent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+                <tfoot>
+                    <tr style="background: var(--primary-light);">
+                        <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); font-size: 0.95rem;">Total Spending</td>
+                        <td style="padding: 12px 14px; text-align: right; font-weight: 700; color: var(--primary); font-size: 1.05rem;">${totalFormatted}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        `;
+    } catch (err) {
+        console.error('Error opening user month breakdown modal:', err);
+        contentEl.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--error, #ef4444);">Failed to load monthly breakdown.</div>`;
+    }
+}
+
+function closeUserMonthBreakdownModal() {
+    const modal = document.getElementById('userMonthBreakdownModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+}
+window.openUserMonthBreakdownModal = openUserMonthBreakdownModal;
+window.closeUserMonthBreakdownModal = closeUserMonthBreakdownModal;
 
 async function renderDashboard() {
     STATE.view = 'dashboard';
@@ -3410,8 +3569,8 @@ function renderSummaryList() {
             itemName: 'Milk',
             amount: totalMilkAmount,
             date: null, // Marker for aggregation
-            categoryId: (milkEntries[0] && milkEntries[0].categoryId) || 'daily',
-            categoryName: 'Daily Expenses',
+            categoryId: (milkEntries[0] && milkEntries[0].categoryId) || 'milk',
+            categoryName: 'Milk',
             paymentMode: 'Cash', // Default assumption or mixed
             isAggregated: true
         };
@@ -5286,7 +5445,7 @@ async function renderSubcategoryView(container, parentName) {
                          <button class="card-edit-btn" onclick="editCategory(event, '${cat._id}', '${cat.name.replace(/'/g, "\\'")}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                          </button>
-                         ${(cat.type !== 'milk' && !['PPF', 'RD', 'LIC', 'GOLDCHIT', 'FD'].includes(cat.name) && !['Travel', 'Function / Gift', 'Donations', 'Happy Plates'].includes(cat.name)) ? `<button class="card-delete-btn" onclick="event.stopPropagation(); deleteCategory('${cat._id}')">&times;</button>` : ''}
+                         ${(cat.type !== 'milk' && !['PPF', 'RD', 'LIC', 'Gold Chit', 'GOLDCHIT', 'FD'].includes(cat.name) && !['Travel', 'Function/Gift', 'Function / Gift', 'Donations', 'Happy Plates', 'Dress', 'Items'].includes(cat.name)) ? `<button class="card-delete-btn" onclick="event.stopPropagation(); deleteCategory('${cat._id}')">&times;</button>` : ''}
                         <span>${cat.name}</span>
                     </div>
                 `).join('')}
@@ -5377,7 +5536,7 @@ window.promptAddCategory = async function (parentName = null) {
     if (parent && !['Miscellaneous', 'Savings'].includes(parent)) {
         parent = null;
     }
-    const name = await showPrompt(`Enter ${!parent ? 'Category' : 'Subcategory'} Name:`, "e.g. " + (!parent ? "Groceries" : "New Item"));
+    const name = await showPrompt(`Enter ${!parent ? 'Category' : 'Subcategory'} Name:`, "e.g. " + (!parent ? "Snacks" : "New Item"));
     if (!name) return;
 
     try {
@@ -5590,7 +5749,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Close on Escape
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeDrawer();
+        if (e.key === 'Escape') {
+            closeDrawer();
+            if (typeof closeUserMonthBreakdownModal === 'function') {
+                closeUserMonthBreakdownModal();
+            }
+        }
     });
 });
 

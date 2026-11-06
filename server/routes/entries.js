@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Entry = require('../models/Entry');
 const Category = require('../models/Category');
+const AnalyticsUtils = require('../utils/analyticsUtils');
 const verifyToken = require('../middleware/verifyToken');
 
 // @route   POST /api/entries
@@ -166,6 +167,133 @@ router.get('/', verifyToken, async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: 'Server Error' });
+    }
+});
+
+// @route   GET /api/entries/monthly-trend
+// @desc    Fetch monthly spending trend for the logged-in user
+router.get('/monthly-trend', verifyToken, async (req, res) => {
+    try {
+        const trend = await AnalyticsUtils.getMonthlyTrend(req.user._id);
+        res.json(trend);
+    } catch (err) {
+        console.error('Error fetching monthly trend:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/entries/monthly-breakdown
+// @desc    Fetch category & subcategory breakdown for a specific month for the logged-in user
+router.get('/monthly-breakdown', verifyToken, async (req, res) => {
+    try {
+        const uid = req.user._id;
+        const { year, month } = req.query;
+        if (!year || !month) {
+            return res.status(400).json({ success: false, message: 'Year and month are required' });
+        }
+
+        const yearNum = parseInt(year);
+        const monthNum = parseInt(month);
+        const startDay = new Date(Date.UTC(yearNum, monthNum - 1, 1));
+        const endDay = new Date(Date.UTC(yearNum, monthNum, 0, 23, 59, 59, 999));
+
+        const allCategories = await Category.find({ userId: uid });
+        const catMap = {};
+        for (const c of allCategories) {
+            catMap[c._id.toString()] = c;
+        }
+
+        const spending = await Entry.aggregate([
+            {
+                $match: {
+                    userId: uid,
+                    date: { $gte: startDay, $lte: endDay }
+                }
+            },
+            {
+                $group: {
+                    _id: '$categoryId',
+                    total: { $sum: '$amount' },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { total: -1 } }
+        ]);
+
+        let totalMonthSpending = 0;
+        let totalEntriesCount = 0;
+        const parentGroups = {};
+        const standalone = [];
+
+        for (const item of spending) {
+            totalMonthSpending += (item.total || 0);
+            totalEntriesCount += (item.count || 0);
+
+            const catIdStr = item._id ? item._id.toString() : '';
+            const cat = catMap[catIdStr];
+            const catName = cat?.name || 'Uncategorized';
+            const parent = cat?.parentCategory;
+
+            if (parent && (!cat?.isParent || catName !== parent)) {
+                if (!parentGroups[parent]) {
+                    parentGroups[parent] = {
+                        parentName: parent,
+                        total: 0,
+                        count: 0,
+                        subcategories: []
+                    };
+                }
+                parentGroups[parent].total += (item.total || 0);
+                parentGroups[parent].count += (item.count || 0);
+                parentGroups[parent].subcategories.push({
+                    categoryId: catIdStr,
+                    name: catName,
+                    total: item.total || 0,
+                    count: item.count || 0
+                });
+            } else if (cat?.isParent) {
+                if (!parentGroups[catName]) {
+                    parentGroups[catName] = {
+                        parentName: catName,
+                        total: 0,
+                        count: 0,
+                        subcategories: []
+                    };
+                }
+                parentGroups[catName].total += (item.total || 0);
+                parentGroups[catName].count += (item.count || 0);
+                parentGroups[catName].subcategories.push({
+                    categoryId: catIdStr,
+                    name: 'General',
+                    total: item.total || 0,
+                    count: item.count || 0
+                });
+            } else {
+                standalone.push({
+                    categoryId: catIdStr,
+                    name: catName,
+                    total: item.total || 0,
+                    count: item.count || 0
+                });
+            }
+        }
+
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const monthName = months[monthNum - 1] ? `${months[monthNum - 1]} ${yearNum}` : `${monthNum}/${yearNum}`;
+
+        res.json({
+            success: true,
+            year: yearNum,
+            month: monthNum,
+            monthName,
+            totalSpending: totalMonthSpending,
+            entryCount: totalEntriesCount,
+            parentGroups: Object.values(parentGroups),
+            standalone
+        });
+    } catch (err) {
+        console.error('Error fetching monthly breakdown:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
