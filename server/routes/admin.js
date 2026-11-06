@@ -323,7 +323,7 @@ router.post('/users/bulk-delete', verifyToken, verifyAdmin, async (req, res) => 
 
 /**
  * GET /api/admin/users/:userId/categories
- * Fetch all categories for a user
+ * Fetch all categories for a user with total spending, entry count, and monthly breakdown
  */
 router.get('/users/:userId/categories', verifyToken, verifyAdmin, async (req, res) => {
     try {
@@ -332,20 +332,48 @@ router.get('/users/:userId/categories', verifyToken, verifyAdmin, async (req, re
 
         const categories = await Category.find({ userId: uid }).sort({ createdAt: -1 });
 
-        // Enrich with entry counts
-        const enrichedCategories = await Promise.all(categories.map(async (cat) => {
-            const entryCount = await Entry.countDocuments({ categoryId: cat._id });
-            const spendingResult = await Entry.aggregate([
-                { $match: { categoryId: cat._id } },
-                { $group: { _id: null, total: { $sum: '$amount' } } }
-            ]);
+        // Aggregate entries by category, year, and month
+        const monthlyPerCategory = await Entry.aggregate([
+            { $match: { userId: uid, date: { $exists: true, $ne: null } } },
+            {
+                $group: {
+                    _id: {
+                        categoryId: '$categoryId',
+                        year: { $year: '$date' },
+                        month: { $month: '$date' }
+                    },
+                    total: { $sum: '$amount' },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { '_id.year': -1, '_id.month': -1 } }
+        ]);
 
+        const statsMap = {};
+        for (const item of monthlyPerCategory) {
+            const cid = item._id.categoryId ? item._id.categoryId.toString() : 'none';
+            if (!statsMap[cid]) {
+                statsMap[cid] = { totalSpending: 0, entryCount: 0, monthly: [] };
+            }
+            statsMap[cid].totalSpending += (item.total || 0);
+            statsMap[cid].entryCount += (item.count || 0);
+            statsMap[cid].monthly.push({
+                year: item._id.year,
+                month: item._id.month,
+                total: item.total || 0,
+                count: item.count || 0
+            });
+        }
+
+        const enrichedCategories = categories.map(cat => {
+            const s = statsMap[cat._id.toString()] || { totalSpending: 0, entryCount: 0, monthly: [] };
             return {
                 ...cat.toObject(),
-                entryCount,
-                totalSpending: spendingResult[0]?.total || 0
+                entryCount: s.entryCount,
+                totalSpending: s.totalSpending,
+                monthlySpending: s.monthly
             };
-        }));
+        });
 
         res.json({
             success: true,
@@ -355,6 +383,52 @@ router.get('/users/:userId/categories', verifyToken, verifyAdmin, async (req, re
     } catch (err) {
         console.error('Error fetching categories:', err);
         res.status(500).json({ success: false, message: 'Error fetching categories' });
+    }
+});
+
+/**
+ * GET /api/admin/users/:userId/categories/:categoryId/monthly
+ * Fetch monthly spending breakdown for a specific category
+ */
+router.get('/users/:userId/categories/:categoryId/monthly', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const uid = toObjectId(req.params.userId);
+        const cid = toObjectId(req.params.categoryId);
+        if (!uid || !cid) return res.status(400).json({ success: false, message: 'Invalid user or category ID' });
+
+        const category = await Category.findOne({ _id: cid, userId: uid });
+        if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
+
+        const monthly = await Entry.aggregate([
+            { $match: { userId: uid, categoryId: cid, date: { $exists: true, $ne: null } } },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$date' },
+                        month: { $month: '$date' }
+                    },
+                    total: { $sum: '$amount' },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { '_id.year': -1, '_id.month': -1 } }
+        ]);
+
+        const monthlySpending = monthly.map(m => ({
+            year: m._id.year,
+            month: m._id.month,
+            total: m.total || 0,
+            count: m.count || 0
+        }));
+
+        res.json({
+            success: true,
+            category: category.toObject(),
+            monthlySpending
+        });
+    } catch (err) {
+        console.error('Error fetching category monthly breakdown:', err);
+        res.status(500).json({ success: false, message: 'Error fetching category monthly breakdown' });
     }
 });
 
@@ -369,8 +443,10 @@ router.get('/users/:userId/entries', verifyToken, verifyAdmin, async (req, res) 
         const uid = toObjectId(req.params.userId);
         if (!uid) return res.status(400).json({ success: false, message: 'Invalid user ID' });
 
-        const { page = 1, limit = 50, categoryId, startDate, endDate, month, year } = req.query;
-        const skip = (page - 1) * limit;
+        const { page = 1, limit = 15, categoryId, startDate, endDate, month, year, search } = req.query;
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const limitNum = Math.max(1, parseInt(limit) || 15);
+        const skip = (pageNum - 1) * limitNum;
 
         // Build query
         let query = { userId: uid };
@@ -378,6 +454,14 @@ router.get('/users/:userId/entries', verifyToken, verifyAdmin, async (req, res) 
         if (categoryId) {
             const catId = toObjectId(categoryId);
             if (catId) query.categoryId = catId;
+        }
+
+        if (search && search.trim()) {
+            const sRegex = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+            query.$or = [
+                { itemName: sRegex },
+                { notes: sRegex }
+            ];
         }
 
         if (month && year) {
@@ -397,7 +481,7 @@ router.get('/users/:userId/entries', verifyToken, verifyAdmin, async (req, res) 
         const entries = await Entry.find(query)
             .sort({ date: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(limitNum);
 
         // Enrich with category names (including parent category info)
         const enrichedEntries = await Promise.all(entries.map(async (entry) => {
@@ -419,9 +503,9 @@ router.get('/users/:userId/entries', verifyToken, verifyAdmin, async (req, res) 
             entries: enrichedEntries,
             pagination: {
                 total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
+                page: pageNum,
+                limit: limitNum,
+                pages: Math.ceil(total / limitNum) || 1
             }
         });
     } catch (err) {

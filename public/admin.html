@@ -217,6 +217,22 @@
         tbody tr:last-child { border-bottom:none; }
         tbody tr:hover { background:rgba(255,255,255,0.025); }
         tbody td { padding:12px 15px; font-size:0.88rem; color:var(--text); }
+        .cat-row-clickable {
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .cat-row-clickable:hover {
+            background: rgba(124, 106, 247, 0.08) !important;
+        }
+        .cat-row-clickable:hover .cat-name-link {
+            color: var(--accent2);
+            text-decoration: underline;
+        }
+        .cat-row-clickable:hover .cat-monthly-pill {
+            background: rgba(124, 106, 247, 0.3) !important;
+            border-color: var(--accent);
+            color: #fff !important;
+        }
 
         /* ── BADGE ── */
         .badge {
@@ -734,6 +750,25 @@
         <div class="modal-actions">
             <button class="btn btn-outline" onclick="closeConfirmModal(false)">Cancel</button>
             <button class="btn btn-primary btn-red" id="confirmOkBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Category Monthly Spending Modal -->
+<div id="catMonthlyModal" class="modal-backdrop" onclick="if(event.target===this) closeCategoryMonthlyModal()">
+    <div class="modal-box" style="max-width: 480px; text-align: left; padding: 22px;">
+        <div class="flex items-center justify-between" style="margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+            <div>
+                <h3 id="catMonthlyTitle" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text);">Category Name</h3>
+                <div id="catMonthlySub" class="text-muted" style="font-size: 0.82rem; margin-top: 3px;">Monthly Spending Breakdown</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="closeCategoryMonthlyModal()" style="padding: 2px 8px; font-size: 1.2rem; line-height: 1; border-radius: 6px;" aria-label="Close">&times;</button>
+        </div>
+        <div id="catMonthlyContent" style="max-height: 380px; overflow-y: auto;">
+            <!-- Rendered monthly breakdown -->
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <button class="btn btn-outline btn-sm" onclick="closeCategoryMonthlyModal()">Close</button>
         </div>
     </div>
 </div>
@@ -1256,20 +1291,43 @@ async function renderUserDetail(userId, containerId, onBack) {
 
             <!-- Categories table -->
             <div class="panel">
-                <div class="panel-hdr"><h2>Categories (${stats.categoryCount||0})</h2></div>
+                <div class="panel-hdr" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div class="flex items-center gap-2">
+                        <h2>Categories (<span id="catCount_${userId}">${stats.categoryCount||0}</span>)</h2>
+                        <span id="catFilteredBadge_${userId}" class="badge badge-purple" style="display:none; font-size:0.72rem;">Filtered</span>
+                    </div>
+                    <div class="filter-row" style="display:flex; align-items:center; gap:8px;">
+                        <input type="text" id="catSearch_${userId}" class="inp" placeholder="Search categories…" style="width:200px;" oninput="onCatSearchInput('${userId}')" onkeydown="if(event.key==='Enter') searchCategories('${userId}')">
+                        <button class="btn btn-primary btn-sm" onclick="searchCategories('${userId}')">Search</button>
+                        <button class="btn btn-outline btn-sm" id="catSearchClear_${userId}" style="display:none;" onclick="clearCatSearch('${userId}')">Clear</button>
+                    </div>
+                </div>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Category Name</th><th>Parent</th><th>Type</th><th>Entries</th><th>Total Spending</th><th>Created</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Category Name</th>
+                                <th>Parent</th>
+                                <th>Type</th>
+                                <th>Entries</th>
+                                <th>Total Spending</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
                         <tbody id="catBody_${userId}"><tr><td colspan="6">${loading('Loading…')}</td></tr></tbody>
                     </table>
+                </div>
+                <div id="catSeeMoreWrap_${userId}" style="display:none; padding:12px 18px; text-align:center; border-top:1px solid var(--border); background:rgba(0,0,0,0.12);">
+                    <button id="catSeeMoreBtn_${userId}" class="btn btn-outline btn-sm" onclick="toggleSeeMoreCategories('${userId}')">See More</button>
                 </div>
             </div>
 
             <!-- Entries table -->
             <div class="panel">
-                <div class="panel-hdr">
+                <div class="panel-hdr" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                     <h2>Entries</h2>
-                    <div class="filter-row">
+                    <div class="filter-row" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <input type="text" id="entrySearch_${userId}" class="inp" placeholder="Search item or notes…" style="width:170px;" onkeydown="if(event.key==='Enter') loadDetailEntries('${userId}',1)">
                         <select id="entryMonth_${userId}" class="inp" onchange="loadDetailEntries('${userId}',1)">
                             <option value="">All Months</option>
                             <option value="1">Jan</option><option value="2">Feb</option>
@@ -1283,7 +1341,13 @@ async function renderUserDetail(userId, containerId, onBack) {
                             <option value="">All Years</option>
                             ${yearOptions()}
                         </select>
-                        <button class="btn btn-outline btn-sm" onclick="document.getElementById('entryMonth_${userId}').value='';document.getElementById('entryYear_${userId}').value='';loadDetailEntries('${userId}',1)">Clear</button>
+                        <select id="entryLimit_${userId}" class="inp" onchange="loadDetailEntries('${userId}',1)" title="Entries per page">
+                            <option value="10">10 / page</option>
+                            <option value="15" selected>15 / page</option>
+                            <option value="25">25 / page</option>
+                            <option value="50">50 / page</option>
+                        </select>
+                        <button class="btn btn-outline btn-sm" onclick="document.getElementById('entrySearch_${userId}').value='';document.getElementById('entryMonth_${userId}').value='';document.getElementById('entryYear_${userId}').value='';loadDetailEntries('${userId}',1)">Clear</button>
                         <button class="btn btn-primary btn-sm" onclick="exportUserFilteredCSV('${userId}', '${esc(user.name).replace(/'/g, "\\'")}')">Export CSV</button>
                     </div>
                 </div>
@@ -1321,6 +1385,8 @@ function yearOptions() {
     return s;
 }
 
+window.catState = window.catState || {};
+
 async function loadDetailCategories(userId) {
     const tbody = document.getElementById(`catBody_${userId}`);
     if (!tbody) return;
@@ -1328,24 +1394,225 @@ async function loadDetailCategories(userId) {
         const res = await apiFetch(`${API}/users/${userId}/categories`);
         if (!res.ok) throw new Error();
         const { categories } = await res.json();
-        if (!categories.length) {
-            tbody.innerHTML = `<tr><td colspan="6">${emptyState('', 'No categories yet.')}</td></tr>`;
-            return;
-        }
-        tbody.innerHTML = categories.map(c => `
-            <tr>
-                <td style="font-weight:500;">${esc(c.name)}</td>
-                <td>${c.parentCategory ? `<span class="badge badge-amber">${esc(c.parentCategory)}</span>` : '<span class="text-muted">—</span>'}</td>
-                <td><span class="badge badge-blue">${esc(c.type||'general')}</span></td>
-                <td>${c.entryCount||0}</td>
-                <td style="font-weight:600;">${fmt(c.totalSpending)}</td>
-                <td class="text-muted">${fmtDate(c.createdAt)}</td>
-            </tr>
-        `).join('');
+        
+        window.catState[userId] = {
+            all: categories || [],
+            showAll: false,
+            searchQuery: ''
+        };
+
+        renderCategoriesTable(userId);
     } catch (err) {
         if (err.message === 'Unauthorized' || err.message === 'Forbidden') return;
         tbody.innerHTML = `<tr><td colspan="6">${emptyState('', 'Failed to load categories.')}</td></tr>`;
     }
+}
+
+function renderCategoriesTable(userId) {
+    const tbody = document.getElementById(`catBody_${userId}`);
+    const seeMoreWrap = document.getElementById(`catSeeMoreWrap_${userId}`);
+    const seeMoreBtn = document.getElementById(`catSeeMoreBtn_${userId}`);
+    const countEl = document.getElementById(`catCount_${userId}`);
+    const filterBadge = document.getElementById(`catFilteredBadge_${userId}`);
+    const clearBtn = document.getElementById(`catSearchClear_${userId}`);
+    if (!tbody) return;
+
+    const state = window.catState[userId];
+    if (!state || !state.all.length) {
+        tbody.innerHTML = `<tr><td colspan="6">${emptyState('', 'No categories yet.')}</td></tr>`;
+        if (seeMoreWrap) seeMoreWrap.style.display = 'none';
+        if (countEl) countEl.textContent = '0';
+        return;
+    }
+
+    const q = (state.searchQuery || '').trim().toLowerCase();
+    let filtered = state.all;
+    if (q) {
+        filtered = state.all.filter(c => {
+            const name = (c.name || '').toLowerCase();
+            const parent = (c.parentCategory || '').toLowerCase();
+            return name.includes(q) || parent.includes(q);
+        });
+        if (filterBadge) filterBadge.style.display = 'inline-block';
+        if (clearBtn) clearBtn.style.display = 'inline-flex';
+        if (countEl) countEl.textContent = `${filtered.length} of ${state.all.length}`;
+    } else {
+        if (filterBadge) filterBadge.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (countEl) countEl.textContent = state.all.length;
+    }
+
+    if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="6">${emptyState('', `No categories found matching "${esc(q)}"`)}</td></tr>`;
+        if (seeMoreWrap) seeMoreWrap.style.display = 'none';
+        return;
+    }
+
+    const totalCount = filtered.length;
+    const isShowingAll = state.showAll;
+    const itemsToDisplay = isShowingAll ? filtered : filtered.slice(0, 10);
+
+    tbody.innerHTML = itemsToDisplay.map(c => `
+        <tr class="cat-row-clickable" onclick="openCategoryMonthlyModal('${userId}', '${c._id}')" title="Click to view monthly spending for ${esc(c.name)}">
+            <td style="font-weight:600;">
+                <span class="cat-name-link">${esc(c.name)}</span>
+            </td>
+            <td>${c.parentCategory ? `<span class="badge badge-amber">${esc(c.parentCategory)}</span>` : '<span class="text-muted">—</span>'}</td>
+            <td><span class="badge badge-blue">${esc(c.type||'general')}</span></td>
+            <td>${c.entryCount||0}</td>
+            <td style="font-weight:600;">
+                <span>${fmt(c.totalSpending)}</span>
+                <span class="badge badge-purple cat-monthly-pill" style="font-size:0.65rem; margin-left:8px; font-weight:600; border:1px solid rgba(124,106,247,0.3);" title="Click to view monthly spending">Monthly ↗</span>
+            </td>
+            <td class="text-muted">${fmtDate(c.createdAt)}</td>
+        </tr>
+    `).join('');
+
+    if (seeMoreWrap && seeMoreBtn) {
+        if (totalCount > 10) {
+            seeMoreWrap.style.display = 'block';
+            if (isShowingAll) {
+                seeMoreBtn.textContent = 'Show Less';
+            } else {
+                seeMoreBtn.textContent = 'See More';
+            }
+        } else {
+            seeMoreWrap.style.display = 'none';
+        }
+    }
+}
+
+function toggleSeeMoreCategories(userId) {
+    if (!window.catState[userId]) return;
+    window.catState[userId].showAll = !window.catState[userId].showAll;
+    renderCategoriesTable(userId);
+}
+
+function searchCategories(userId) {
+    const input = document.getElementById(`catSearch_${userId}`);
+    if (!window.catState[userId]) return;
+    window.catState[userId].searchQuery = input ? input.value : '';
+    window.catState[userId].showAll = false;
+    renderCategoriesTable(userId);
+}
+
+function onCatSearchInput(userId) {
+    const input = document.getElementById(`catSearch_${userId}`);
+    if (window.catState[userId]) {
+        window.catState[userId].searchQuery = input ? input.value : '';
+        renderCategoriesTable(userId);
+    }
+}
+
+function clearCatSearch(userId) {
+    const input = document.getElementById(`catSearch_${userId}`);
+    if (input) input.value = '';
+    if (window.catState[userId]) {
+        window.catState[userId].searchQuery = '';
+        window.catState[userId].showAll = false;
+        renderCategoriesTable(userId);
+    }
+}
+
+const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+async function openCategoryMonthlyModal(userId, categoryId) {
+    const modal = document.getElementById('catMonthlyModal');
+    const titleEl = document.getElementById('catMonthlyTitle');
+    const subEl = document.getElementById('catMonthlySub');
+    const contentEl = document.getElementById('catMonthlyContent');
+    if (!modal) return;
+
+    titleEl.textContent = 'Loading…';
+    subEl.textContent = 'Monthly Spending Breakdown';
+    contentEl.innerHTML = `<div class="loading-wrap" style="padding:40px 0;"><div class="spinner"></div> Loading monthly data…</div>`;
+    modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('show'), 10);
+
+    try {
+        let cat = window.catState?.[userId]?.all?.find(c => c._id === categoryId);
+        let monthly = cat?.monthlySpending;
+
+        if (!monthly || !monthly.length) {
+            const res = await apiFetch(`${API}/users/${userId}/categories/${categoryId}/monthly`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.category) cat = data.category;
+                monthly = data.monthlySpending || [];
+                if (cat) cat.monthlySpending = monthly;
+            } else {
+                monthly = monthly || [];
+            }
+        }
+
+        const catName = cat ? cat.name : 'Category';
+        titleEl.textContent = catName;
+        subEl.innerHTML = `${cat?.parentCategory ? `<span class="badge badge-amber" style="font-size:0.75rem; margin-right:6px;">${esc(cat.parentCategory)}</span>` : ''}Monthly Spending Breakdown`;
+
+        if (!monthly || !monthly.length) {
+            contentEl.innerHTML = `
+                <div style="text-align:center; padding:35px 20px; color:var(--text3);">
+                    <div style="font-size:1.8rem; margin-bottom:8px; opacity:0.6;">📅</div>
+                    <div style="font-size:0.95rem; font-weight:500; color:var(--text2); margin-bottom:4px;">No spending in any month</div>
+                    <div style="font-size:0.82rem;">Total spending for this category is ₹0</div>
+                </div>
+            `;
+            return;
+        }
+
+        // Sort monthly: newest first
+        const sorted = [...monthly].sort((a, b) => {
+            if (b.year !== a.year) return b.year - a.year;
+            return b.month - a.month;
+        });
+
+        const totalSpending = sorted.reduce((sum, m) => sum + (m.total || 0), 0);
+
+        contentEl.innerHTML = `
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="padding:10px 14px; text-align:left; font-size:0.75rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); background:var(--bg3);">Month</th>
+                        <th style="padding:10px 14px; text-align:right; font-size:0.75rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); background:var(--bg3);">Amount Spent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sorted.map(m => {
+                        const mName = MONTH_NAMES[(m.month || 1) - 1] || `Month ${m.month}`;
+                        return `
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:11px 14px; font-weight:500; color:var(--text);">
+                                    ${mName} ${m.year}
+                                </td>
+                                <td style="padding:11px 14px; text-align:right; font-weight:600; color:var(--green); font-size:0.95rem;">
+                                    ${fmt(m.total)}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+                <tfoot>
+                    <tr style="background:rgba(124,106,247,0.06);">
+                        <td style="padding:12px 14px; font-weight:700; color:var(--text); font-size:0.9rem;">Total Spending</td>
+                        <td style="padding:12px 14px; text-align:right; font-weight:700; color:var(--accent2); font-size:1rem;">${fmt(totalSpending)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        `;
+    } catch (err) {
+        console.error('Error opening category monthly modal:', err);
+        contentEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--red);">Failed to load monthly data.</div>`;
+    }
+}
+
+function closeCategoryMonthlyModal() {
+    const modal = document.getElementById('catMonthlyModal');
+    if (!modal) return;
+    modal.classList.remove('show');
+    setTimeout(() => { modal.style.display = 'none'; }, 200);
 }
 
 async function loadDetailEntries(userId, page = 1) {
@@ -1354,9 +1621,12 @@ async function loadDetailEntries(userId, page = 1) {
     if (!tbody) return;
     tbody.innerHTML = `<tr><td colspan="6">${loading('')}</td></tr>`;
 
-    const month = document.getElementById(`entryMonth_${userId}`)?.value || '';
-    const year  = document.getElementById(`entryYear_${userId}`)?.value  || '';
-    let url = `${API}/users/${userId}/entries?page=${page}&limit=20`;
+    const search = document.getElementById(`entrySearch_${userId}`)?.value?.trim() || '';
+    const month  = document.getElementById(`entryMonth_${userId}`)?.value || '';
+    const year   = document.getElementById(`entryYear_${userId}`)?.value  || '';
+    const limit  = parseInt(document.getElementById(`entryLimit_${userId}`)?.value || 15);
+    let url = `${API}/users/${userId}/entries?page=${page}&limit=${limit}`;
+    if (search)        url += `&search=${encodeURIComponent(search)}`;
     if (month && year) url += `&month=${month}&year=${year}`;
     else if (month)    url += `&month=${month}&year=${new Date().getFullYear()}`;
 
@@ -1391,14 +1661,47 @@ async function loadDetailEntries(userId, page = 1) {
 }
 
 function buildEntryPag(el, pag, userId) {
-    if (!pag || pag.pages <= 1) { el.innerHTML = ''; return; }
-    const { page, pages } = pag;
-    let h = `<button class="page-btn" ${page<=1?'disabled':''} onclick="loadDetailEntries('${userId}',${page-1})">‹</button>`;
-    for (let i = Math.max(1,page-2); i <= Math.min(pages,page+2); i++) {
-        h += `<button class="page-btn${i===page?' active':''}" onclick="loadDetailEntries('${userId}',${i})">${i}</button>`;
+    if (!pag || !pag.total) { el.innerHTML = ''; return; }
+    const { page, pages, total, limit } = pag;
+    const start = Math.min((page - 1) * limit + 1, total);
+    const end = Math.min(page * limit, total);
+
+    let html = `
+        <div class="flex items-center justify-between" style="width:100%; flex-wrap:wrap; gap:10px;">
+            <div class="text-muted" style="font-size:0.83rem;">
+                Showing <strong>${start}–${end}</strong> of <strong>${total.toLocaleString('en-IN')}</strong> entries
+            </div>
+    `;
+
+    if (pages > 1) {
+        html += `<div class="flex items-center gap-1">`;
+        html += `<button class="page-btn" ${page<=1?'disabled':''} onclick="loadDetailEntries('${userId}',1)" title="First Page">«</button>`;
+        html += `<button class="page-btn" ${page<=1?'disabled':''} onclick="loadDetailEntries('${userId}',${page-1})" title="Previous Page">‹</button>`;
+
+        const startPage = Math.max(1, page - 2);
+        const endPage = Math.min(pages, page + 2);
+
+        if (startPage > 1) {
+            html += `<button class="page-btn" onclick="loadDetailEntries('${userId}',1)">1</button>`;
+            if (startPage > 2) html += `<span style="padding:0 4px; color:var(--text3);">…</span>`;
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="page-btn${i===page?' active':''}" onclick="loadDetailEntries('${userId}',${i})">${i}</button>`;
+        }
+
+        if (endPage < pages) {
+            if (endPage < pages - 1) html += `<span style="padding:0 4px; color:var(--text3);">…</span>`;
+            html += `<button class="page-btn" onclick="loadDetailEntries('${userId}',${pages})">${pages}</button>`;
+        }
+
+        html += `<button class="page-btn" ${page>=pages?'disabled':''} onclick="loadDetailEntries('${userId}',${page+1})" title="Next Page">›</button>`;
+        html += `<button class="page-btn" ${page>=pages?'disabled':''} onclick="loadDetailEntries('${userId}',${pages})" title="Last Page">»</button>`;
+        html += `</div>`;
     }
-    h += `<button class="page-btn" ${page>=pages?'disabled':''} onclick="loadDetailEntries('${userId}',${page+1})">›</button>`;
-    el.innerHTML = h;
+
+    html += `</div>`;
+    el.innerHTML = html;
 }
 
 function drawUserMonthly(canvasId, trend) {
@@ -1639,6 +1942,12 @@ async function doExport(url, name) {
 // ════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeCategoryMonthlyModal();
+        closeConfirmModal(false);
+    }
+});
 window.addEventListener('DOMContentLoaded', initAdmin);
 </script>
 
