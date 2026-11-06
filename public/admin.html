@@ -304,29 +304,6 @@
             font-size:1.3rem; font-weight:700; color:white; flex-shrink:0;
         }
 
-        /* ── EXPLORER ── */
-        .explorer-user-grid {
-            display:grid;
-            grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
-            gap:12px; margin-top:16px;
-        }
-        .explorer-user-card {
-            background:var(--bg3); border:1px solid var(--border);
-            border-radius:var(--radius-sm); padding:16px;
-            cursor:pointer; transition:all 0.2s;
-            min-width: 0;
-            overflow: hidden;
-        }
-        .explorer-user-card:hover { border-color:var(--accent); background:rgba(124,106,247,0.07); }
-        .explorer-user-card h4 {
-            font-size:0.93rem; font-weight:600; margin-bottom:4px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .explorer-user-card p {
-            font-size:0.78rem; color:var(--text2);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-
         /* ── EXPORT ── */
         .export-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(270px,1fr)); gap:14px; }
         .export-card {
@@ -519,9 +496,6 @@
         <button class="nav-btn" id="nav-users" onclick="showSection('users',this)">
             Users
         </button>
-        <button class="nav-btn" id="nav-explorer" onclick="showSection('explorer',this)">
-            Data Explorer
-        </button>
 
         <div class="nav-section">Export</div>
         <button class="nav-btn" id="nav-export" onclick="showSection('export',this)">
@@ -655,39 +629,6 @@
             <div id="userDetailView" style="display:none;">
                 <button class="back-btn" onclick="backToUserList()">← Back to Users</button>
                 <div id="userDetailContent"></div>
-            </div>
-        </div>
-
-        <!-- ====== DATA EXPLORER ====== -->
-        <div id="explorer" class="section">
-            <div class="page-hdr">
-                <div class="page-hdr-title-wrap">
-                    <button class="menu-toggle-btn" onclick="toggleSidebar(event)" aria-label="Open menu">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                    </button>
-                    <h1>Data <span>Explorer</span></h1>
-                </div>
-            </div>
-
-            <!-- Explorer: pick a user -->
-            <div id="explorerPicker">
-                <div class="panel">
-                    <div class="panel-hdr">
-                        <h2>Select a User</h2>
-                        <input type="text" id="explorerSearch" class="inp" placeholder="Search users…" style="width:220px;" oninput="filterExplorerCards()">
-                    </div>
-                    <div class="panel-body">
-                        <div class="explorer-user-grid" id="explorerGrid">
-                            <div class="loading-wrap"><div class="spinner"></div> Loading…</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Explorer: user data -->
-            <div id="explorerDetail" style="display:none;">
-                <button class="back-btn" onclick="backToExplorer()">← Back to Explorer</button>
-                <div id="explorerDetailContent"></div>
             </div>
         </div>
 
@@ -930,7 +871,6 @@ let searchTimer = null;
 let monthlyChart = null;
 let catChart = null;
 let allExportUsers = [];
-let allExplorerUsers = [];
 
 // ════════════════════════════════════════════════
 //  HELPERS
@@ -1060,7 +1000,6 @@ function showSection(id, btn) {
     document.getElementById('sidebarOverlay')?.classList.remove('open');
 
     if (id === 'users') loadUsers(1);
-    if (id === 'explorer') loadExplorerUsers();
     if (id === 'export') loadExportUsers();
 }
 
@@ -1281,7 +1220,6 @@ async function bulkDeleteUsers() {
             if (res.ok && data.success) {
                 toast(data.message || 'Users deleted successfully', 'ok');
                 loadUsers(1);
-                if (typeof loadExplorerUsers === 'function') loadExplorerUsers();
                 if (typeof loadExportUsers === 'function') loadExportUsers();
                 if (typeof loadDashboard === 'function') loadDashboard();
             } else {
@@ -1365,10 +1303,8 @@ async function deleteUser(userId, userName, redirectBack = false) {
                 toast(`User "${userName}" deleted successfully`, 'ok');
                 if (redirectBack) {
                     backToUserList();
-                    if (typeof backToExplorer === 'function') backToExplorer();
                 }
                 loadUsers(1);
-                if (typeof loadExplorerUsers === 'function') loadExplorerUsers();
                 if (typeof loadExportUsers === 'function') loadExportUsers();
                 if (typeof loadDashboard === 'function') loadDashboard();
             } else {
@@ -1382,7 +1318,7 @@ async function deleteUser(userId, userName, redirectBack = false) {
 }
 
 // ════════════════════════════════════════════════
-//  USER DETAIL RENDERER (shared by Users + Explorer)
+//  USER DETAIL RENDERER
 // ════════════════════════════════════════════════
 async function renderUserDetail(userId, containerId, onBack) {
     const container = document.getElementById(containerId);
@@ -2031,68 +1967,6 @@ function drawUserCats(canvasId, dist) {
             }
         }
     });
-}
-
-// ════════════════════════════════════════════════
-//  DATA EXPLORER
-// ════════════════════════════════════════════════
-async function loadExplorerUsers() {
-    const grid = document.getElementById('explorerGrid');
-    grid.innerHTML = loading('Loading users…');
-    try {
-        const res = await apiFetch(`${API}/users?page=1&limit=200`);
-        if (!res.ok) throw new Error();
-        const { users } = await res.json();
-        allExplorerUsers = users;
-        renderExplorerGrid(users);
-    } catch (err) {
-        if (err.message === 'Unauthorized' || err.message === 'Forbidden') return;
-        grid.innerHTML = emptyState('', 'Failed to load users.');
-    }
-}
-
-function filterExplorerCards() {
-    const q = document.getElementById('explorerSearch').value.toLowerCase();
-    renderExplorerGrid(allExplorerUsers.filter(u =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        u._id.includes(q)
-    ));
-}
-
-function renderExplorerGrid(users) {
-    const grid = document.getElementById('explorerGrid');
-    if (!users.length) { grid.innerHTML = emptyState('', 'No users match your search.'); return; }
-    grid.innerHTML = users.map(u => `
-        <div class="explorer-user-card" onclick="openExplorerDetail('${u._id}')">
-            <div class="flex items-center gap-2" style="margin-bottom:8px; min-width:0;">
-                <div class="user-avatar" style="width:34px;height:34px;font-size:0.8rem;">${initials(u.name)}</div>
-                <div style="flex:1; min-width:0; overflow:hidden;">
-                    <h4>${esc(u.name)}</h4>
-                    <p>${esc(u.email)}</p>
-                </div>
-            </div>
-            <div class="flex gap-2" style="flex-wrap:wrap;">
-                <span class="badge badge-blue">${u.categoryCount||0} cats</span>
-                <span class="badge badge-green">${u.entryCount||0} entries</span>
-                <span class="badge badge-amber">${fmt(u.totalSpending)}</span>
-            </div>
-            <p style="margin-top:8px;font-size:0.72rem;" class="text-muted mono">${u._id}</p>
-        </div>
-    `).join('');
-}
-
-function backToExplorer() {
-    document.getElementById('explorerDetail').style.display = 'none';
-    document.getElementById('explorerPicker').style.display = '';
-}
-
-async function openExplorerDetail(userId) {
-    document.getElementById('explorerPicker').style.display = 'none';
-    const detail = document.getElementById('explorerDetail');
-    detail.style.display = 'block';
-    document.getElementById('explorerDetailContent').innerHTML = loading('Loading user data…');
-    await renderUserDetail(userId, 'explorerDetailContent', backToExplorer);
 }
 
 // ════════════════════════════════════════════════
