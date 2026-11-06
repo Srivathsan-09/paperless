@@ -868,8 +868,49 @@ router.get('/export/monthly/data', verifyToken, verifyAdmin, async (req, res) =>
 });
 
 /**
+ * Helper to build date/category query filters for exports
+ */
+function buildUserEntryQuery(userId, queryParams = {}) {
+    const { month, year, fromMonth, fromYear, toMonth, toYear, startDate, endDate, categoryId } = queryParams;
+    let query = { userId };
+
+    if (categoryId && categoryId !== 'all') {
+        const cId = toObjectId(categoryId);
+        if (cId) query.categoryId = cId;
+    }
+
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        query.date = { $gte: start, $lte: end };
+    } else if (fromYear && toYear && fromMonth && toMonth) {
+        const fm = parseInt(fromMonth);
+        const fy = parseInt(fromYear);
+        const tm = parseInt(toMonth);
+        const ty = parseInt(toYear);
+        const startDay = new Date(Date.UTC(fy, fm - 1, 1));
+        const endDay = new Date(Date.UTC(ty, tm, 0, 23, 59, 59, 999));
+        query.date = { $gte: startDay, $lte: endDay };
+    } else if (month && year) {
+        const monthNum = parseInt(month);
+        const yearNum = parseInt(year);
+        const startDay = new Date(Date.UTC(yearNum, monthNum - 1, 1));
+        const endDay = new Date(Date.UTC(yearNum, monthNum, 0, 23, 59, 59, 999));
+        query.date = { $gte: startDay, $lte: endDay };
+    } else if (year) {
+        const targetYear = parseInt(year);
+        const startDay = new Date(Date.UTC(targetYear, 0, 1));
+        const endDay = new Date(Date.UTC(targetYear, 12, 0, 23, 59, 59, 999));
+        query.date = { $gte: startDay, $lte: endDay };
+    }
+
+    return query;
+}
+
+/**
  * GET /api/admin/export/:userId/json
- * Export user data as JSON
+ * Export user data as JSON (supports month, year, range, or all-time)
  */
 router.get('/export/:userId/json', verifyToken, verifyAdmin, async (req, res) => {
     try {
@@ -881,8 +922,9 @@ router.get('/export/:userId/json', verifyToken, verifyAdmin, async (req, res) =>
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
+        const query = buildUserEntryQuery(uid, req.query);
         const categories = await Category.find({ userId: uid });
-        const entries = await Entry.find({ userId: uid });
+        const entries = await Entry.find(query).sort({ date: -1 });
 
         // Enrich entries with category names
         const enrichedEntries = await Promise.all(entries.map(async (entry) => {
@@ -897,31 +939,48 @@ router.get('/export/:userId/json', verifyToken, verifyAdmin, async (req, res) =>
             };
         }));
 
-        const stats = await AnalyticsUtils.getSpendingStats(uid);
-        const categoryDistribution = await AnalyticsUtils.getCategoryDistribution(uid);
-        const monthlySpending = await AnalyticsUtils.getMonthlyTrend(uid);
-        const paymentModes = await AnalyticsUtils.getPaymentModeDistribution(uid);
+        // Compute total spending and average for filtered entries
+        const totalSpending = entries.reduce((s, e) => s + (e.amount || 0), 0);
+        const averageAmount = entries.length > 0 ? (totalSpending / entries.length) : 0;
 
-        const completeData = ExportUtils.generateCompleteExport(
-            user,
-            categories,
-            enrichedEntries,
-            {
-                totalCategories: categories.length,
-                totalEntries: entries.length,
-                totalSpending: stats.totalSpending,
-                averageAmount: stats.averageAmount,
-                categoryDistribution: categoryDistribution.reduce((acc, cat) => {
-                    acc[cat.categoryName] = cat.total;
-                    return acc;
-                }, {}),
-                monthlySpending: monthlySpending.reduce((acc, m) => {
-                    acc[m.month] = m.total;
-                    return acc;
-                }, {}),
-                paymentModes
-            }
-        );
+        const completeData = {
+            exportDate: new Date().toISOString(),
+            filter: req.query,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                createdAt: user.createdAt,
+                lastLogin: user.lastLogin,
+            },
+            statistics: {
+                'Summary Statistics': {
+                    'Total Categories': categories.length,
+                    'Total Entries': entries.length,
+                    'Total Spending': totalSpending,
+                    'Average Amount': averageAmount
+                }
+            },
+            categories: categories.map(c => ({
+                id: c._id,
+                name: c.name,
+                type: c.type,
+                parentCategory: c.parentCategory,
+                isParent: c.isParent,
+                createdAt: c.createdAt
+            })),
+            entries: enrichedEntries.map(e => ({
+                id: e._id,
+                categoryId: e.categoryId,
+                categoryName: e.categoryName,
+                amount: e.amount,
+                date: e.date,
+                itemName: e.itemName,
+                notes: e.notes,
+                paymentMode: e.paymentMode,
+                createdAt: e.createdAt
+            }))
+        };
 
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', `attachment; filename="${user.name.replace(/\s+/g, '_')}_export.json"`);
@@ -934,30 +993,15 @@ router.get('/export/:userId/json', verifyToken, verifyAdmin, async (req, res) =>
 
 /**
  * GET /api/admin/export/:userId/csv/entries
- * Export entries as CSV
+ * Export entries as CSV (supports month, year, range, or all-time)
  */
 router.get('/export/:userId/csv/entries', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const uid = toObjectId(req.params.userId);
         if (!uid) return res.status(400).json({ success: false, message: 'Invalid user ID' });
 
-        const { month, year } = req.query;
         const user = await User.findById(uid).select('name');
-        
-        let query = { userId: uid };
-        
-        let targetYear = year ? parseInt(year) : (month ? new Date().getFullYear() : null);
-        if (month && targetYear) {
-            const monthNum = parseInt(month);
-            const startDay = new Date(Date.UTC(targetYear, monthNum - 1, 1));
-            const endDay = new Date(Date.UTC(targetYear, monthNum, 0, 23, 59, 59, 999));
-            query.date = { $gte: startDay, $lte: endDay };
-        } else if (targetYear) {
-            const startDay = new Date(Date.UTC(targetYear, 0, 1));
-            const endDay = new Date(Date.UTC(targetYear, 12, 0, 23, 59, 59, 999));
-            query.date = { $gte: startDay, $lte: endDay };
-        }
-
+        const query = buildUserEntryQuery(uid, req.query);
         const entries = await Entry.find(query).sort({ date: -1 });
 
         // Enrich with category names
@@ -978,16 +1022,22 @@ router.get('/export/:userId/csv/entries', verifyToken, verifyAdmin, async (req, 
         const safeName = (user?.name || req.params.userId).replace(/\s+/g, '_');
         
         let fileSuffix = 'entries';
-        if (month) {
-            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-            fileSuffix = `${months[parseInt(month)-1]}`;
-        }
-        if (year) {
-            if (month) fileSuffix += `_${year}`;
-            else fileSuffix = `${year}_entries`;
+        const { month, year, fromMonth, fromYear, toMonth, toYear, startDate, endDate } = req.query;
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        
+        if (startDate && endDate) {
+            fileSuffix = `${startDate}_to_${endDate}_entries`;
+        } else if (fromMonth && fromYear && toMonth && toYear) {
+            fileSuffix = `${months[parseInt(fromMonth)-1]}_${fromYear}_to_${months[parseInt(toMonth)-1]}_${toYear}_entries`;
+        } else if (month && year) {
+            fileSuffix = `${months[parseInt(month)-1]}_${year}_entries`;
+        } else if (year) {
+            fileSuffix = `${year}_yearly_entries`;
+        } else {
+            fileSuffix = 'all_time_entries';
         }
 
-        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${safeName}_${fileSuffix}.csv"`);
         res.send(csvContent);
     } catch (err) {
