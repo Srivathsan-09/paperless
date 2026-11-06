@@ -432,6 +432,137 @@ router.get('/users/:userId/categories/:categoryId/monthly', verifyToken, verifyA
     }
 });
 
+/**
+ * GET /api/admin/users/:userId/monthly-breakdown
+ * Fetch category & subcategory breakdown for a specific month
+ */
+router.get('/users/:userId/monthly-breakdown', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const uid = toObjectId(req.params.userId);
+        if (!uid) return res.status(400).json({ success: false, message: 'Invalid user ID' });
+
+        const { year, month } = req.query;
+        if (!year || !month) {
+            return res.status(400).json({ success: false, message: 'Year and month are required' });
+        }
+
+        const yearNum = parseInt(year);
+        const monthNum = parseInt(month);
+        const startDay = new Date(Date.UTC(yearNum, monthNum - 1, 1));
+        const endDay = new Date(Date.UTC(yearNum, monthNum, 0, 23, 59, 59, 999));
+
+        // 1. Fetch user categories to resolve parents and names
+        const allCategories = await Category.find({ userId: uid });
+        const catMap = {};
+        for (const c of allCategories) {
+            catMap[c._id.toString()] = c;
+        }
+
+        // 2. Aggregate entries for the month grouped by categoryId
+        const spending = await Entry.aggregate([
+            {
+                $match: {
+                    userId: uid,
+                    date: { $gte: startDay, $lte: endDay }
+                }
+            },
+            {
+                $group: {
+                    _id: '$categoryId',
+                    total: { $sum: '$amount' },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { total: -1 } }
+        ]);
+
+        let totalMonthSpending = 0;
+        let totalEntriesCount = 0;
+        const parentGroups = {};
+        const standalone = [];
+
+        for (const item of spending) {
+            totalMonthSpending += (item.total || 0);
+            totalEntriesCount += (item.count || 0);
+
+            const catIdStr = item._id ? item._id.toString() : '';
+            const cat = catMap[catIdStr];
+            const catName = cat?.name || 'Uncategorized';
+            const parent = cat?.parentCategory;
+
+            if (parent && (!cat?.isParent || catName !== parent)) {
+                if (!parentGroups[parent]) {
+                    parentGroups[parent] = {
+                        parentName: parent,
+                        total: 0,
+                        count: 0,
+                        subcategories: []
+                    };
+                }
+                parentGroups[parent].total += (item.total || 0);
+                parentGroups[parent].count += (item.count || 0);
+                parentGroups[parent].subcategories.push({
+                    categoryId: catIdStr,
+                    name: catName,
+                    total: item.total || 0,
+                    count: item.count || 0
+                });
+            } else if (cat?.isParent) {
+                if (!parentGroups[catName]) {
+                    parentGroups[catName] = {
+                        parentName: catName,
+                        total: 0,
+                        count: 0,
+                        subcategories: []
+                    };
+                }
+                parentGroups[catName].total += (item.total || 0);
+                parentGroups[catName].count += (item.count || 0);
+                parentGroups[catName].subcategories.push({
+                    categoryId: catIdStr,
+                    name: 'General',
+                    total: item.total || 0,
+                    count: item.count || 0
+                });
+            } else {
+                standalone.push({
+                    categoryId: catIdStr,
+                    name: catName,
+                    total: item.total || 0,
+                    count: item.count || 0
+                });
+            }
+        }
+
+        const groupsArray = Object.values(parentGroups).map(g => {
+            g.subcategories.sort((a, b) => b.total - a.total);
+            return g;
+        });
+        groupsArray.sort((a, b) => b.total - a.total);
+        standalone.sort((a, b) => b.total - a.total);
+
+        const MONTH_NAMES = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        const monthName = `${MONTH_NAMES[monthNum - 1] || 'Month ' + monthNum} ${yearNum}`;
+
+        res.json({
+            success: true,
+            year: yearNum,
+            month: monthNum,
+            monthName,
+            totalSpending: totalMonthSpending,
+            entryCount: totalEntriesCount,
+            parentGroups: groupsArray,
+            standalone
+        });
+    } catch (err) {
+        console.error('Error fetching monthly breakdown:', err);
+        res.status(500).json({ success: false, message: 'Error fetching monthly breakdown' });
+    }
+});
+
 // ============= ENTRY MANAGEMENT =============
 
 /**

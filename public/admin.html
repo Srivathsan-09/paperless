@@ -773,6 +773,25 @@
     </div>
 </div>
 
+<!-- Month Category & Subcategory Breakdown Modal (opened by clicking Monthly Spending Trend chart) -->
+<div id="monthBreakdownModal" class="modal-backdrop" onclick="if(event.target===this) closeMonthBreakdownModal()">
+    <div class="modal-box" style="max-width: 500px; text-align: left; padding: 22px;">
+        <div class="flex items-center justify-between" style="margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+            <div>
+                <h3 id="monthBreakdownTitle" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text);">Month</h3>
+                <div id="monthBreakdownSub" class="text-muted" style="font-size: 0.82rem; margin-top: 3px;">Category &amp; Subcategory Spending</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="closeMonthBreakdownModal()" style="padding: 2px 8px; font-size: 1.2rem; line-height: 1; border-radius: 6px;" aria-label="Close">&times;</button>
+        </div>
+        <div id="monthBreakdownContent" style="max-height: 400px; overflow-y: auto;">
+            <!-- Category breakdown table will be rendered here -->
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <button class="btn btn-outline btn-sm" onclick="closeMonthBreakdownModal()">Close</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // ════════════════════════════════════════════════
 //  GLOBALS
@@ -1280,7 +1299,7 @@ async function renderUserDetail(userId, containerId, onBack) {
             <!-- Charts -->
             <div class="chart-grid" id="userChartGrid_${userId}">
                 <div class="chart-box">
-                    <h3>Monthly Spending Trend</h3>
+                    <h3>Monthly Spending Trend <span style="font-size:0.75rem; font-weight:normal; color:var(--text3); margin-left:6px;">(Click bar to view category breakdown)</span></h3>
                     <canvas id="monthlyChart_${userId}"></canvas>
                 </div>
                 <div class="chart-box">
@@ -1308,13 +1327,12 @@ async function renderUserDetail(userId, containerId, onBack) {
                             <tr>
                                 <th>Category Name</th>
                                 <th>Parent</th>
-                                <th>Type</th>
                                 <th>Entries</th>
                                 <th>Total Spending</th>
                                 <th>Created</th>
                             </tr>
                         </thead>
-                        <tbody id="catBody_${userId}"><tr><td colspan="6">${loading('Loading…')}</td></tr></tbody>
+                        <tbody id="catBody_${userId}"><tr><td colspan="5">${loading('Loading…')}</td></tr></tbody>
                     </table>
                 </div>
                 <div id="catSeeMoreWrap_${userId}" style="display:none; padding:12px 18px; text-align:center; border-top:1px solid var(--border); background:rgba(0,0,0,0.12);">
@@ -1363,7 +1381,7 @@ async function renderUserDetail(userId, containerId, onBack) {
 
         // Draw charts
         setTimeout(() => {
-            drawUserMonthly(`monthlyChart_${userId}`, stats.monthlyTrend || []);
+            drawUserMonthly(`monthlyChart_${userId}`, stats.monthlyTrend || [], userId);
             drawUserCats(`catChart_${userId}`, stats.categoryDistribution || []);
         }, 50);
 
@@ -1404,7 +1422,7 @@ async function loadDetailCategories(userId) {
         renderCategoriesTable(userId);
     } catch (err) {
         if (err.message === 'Unauthorized' || err.message === 'Forbidden') return;
-        tbody.innerHTML = `<tr><td colspan="6">${emptyState('', 'Failed to load categories.')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">${emptyState('', 'Failed to load categories.')}</td></tr>`;
     }
 }
 
@@ -1419,7 +1437,7 @@ function renderCategoriesTable(userId) {
 
     const state = window.catState[userId];
     if (!state || !state.all.length) {
-        tbody.innerHTML = `<tr><td colspan="6">${emptyState('', 'No categories yet.')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">${emptyState('', 'No categories yet.')}</td></tr>`;
         if (seeMoreWrap) seeMoreWrap.style.display = 'none';
         if (countEl) countEl.textContent = '0';
         return;
@@ -1443,7 +1461,7 @@ function renderCategoriesTable(userId) {
     }
 
     if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="6">${emptyState('', `No categories found matching "${esc(q)}"`)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">${emptyState('', `No categories found matching "${esc(q)}"`)}</td></tr>`;
         if (seeMoreWrap) seeMoreWrap.style.display = 'none';
         return;
     }
@@ -1458,12 +1476,8 @@ function renderCategoriesTable(userId) {
                 <span class="cat-name-link">${esc(c.name)}</span>
             </td>
             <td>${c.parentCategory ? `<span class="badge badge-amber">${esc(c.parentCategory)}</span>` : '<span class="text-muted">—</span>'}</td>
-            <td><span class="badge badge-blue">${esc(c.type||'general')}</span></td>
             <td>${c.entryCount||0}</td>
-            <td style="font-weight:600;">
-                <span>${fmt(c.totalSpending)}</span>
-                <span class="badge badge-purple cat-monthly-pill" style="font-size:0.65rem; margin-left:8px; font-weight:600; border:1px solid rgba(124,106,247,0.3);" title="Click to view monthly spending">Monthly ↗</span>
-            </td>
+            <td style="font-weight:600;">${fmt(c.totalSpending)}</td>
             <td class="text-muted">${fmtDate(c.createdAt)}</td>
         </tr>
     `).join('');
@@ -1704,7 +1718,7 @@ function buildEntryPag(el, pag, userId) {
     el.innerHTML = html;
 }
 
-function drawUserMonthly(canvasId, trend) {
+function drawUserMonthly(canvasId, trend, userId) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     const ch = Chart.getChart(ctx);
@@ -1721,18 +1735,148 @@ function drawUserMonthly(canvasId, trend) {
                 data: trend.map(t => t.total),
                 backgroundColor: 'rgba(96,165,250,0.55)',
                 borderColor: 'rgba(96,165,250,1)',
-                borderWidth: 1, borderRadius: 4
+                borderWidth: 1, borderRadius: 4,
+                hoverBackgroundColor: 'rgba(124,106,247,0.7)',
+                hoverBorderColor: 'rgba(124,106,247,1)'
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend:{ display:false }, tooltip:{ callbacks:{ label: c => fmt(c.raw) } } },
+            onClick: (evt, elements) => {
+                if (!elements || !elements.length) return;
+                const index = elements[0].index;
+                const item = trend[index];
+                if (item && item.month && userId) {
+                    const [y, m] = item.month.split('-');
+                    openMonthBreakdownModal(userId, parseInt(y), parseInt(m));
+                }
+            },
+            onHover: (event, chartElement) => {
+                event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: c => `${fmt(c.raw)} (Click to view breakdown)`
+                    }
+                }
+            },
             scales: {
                 x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8b8fa8', font:{size:10} } },
                 y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8b8fa8', callback: v => '₹'+Number(v).toLocaleString('en-IN') } }
             }
         }
     });
+}
+
+async function openMonthBreakdownModal(userId, year, month) {
+    const modal = document.getElementById('monthBreakdownModal');
+    const titleEl = document.getElementById('monthBreakdownTitle');
+    const subEl = document.getElementById('monthBreakdownSub');
+    const contentEl = document.getElementById('monthBreakdownContent');
+    if (!modal) return;
+
+    titleEl.textContent = 'Loading…';
+    subEl.textContent = 'Category & Subcategory Breakdown';
+    contentEl.innerHTML = `<div class="loading-wrap" style="padding:40px 0;"><div class="spinner"></div> Loading category breakdown…</div>`;
+    modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('show'), 10);
+
+    try {
+        const res = await apiFetch(`${API}/users/${userId}/monthly-breakdown?year=${year}&month=${month}`);
+        if (!res.ok) throw new Error('Failed to fetch monthly breakdown');
+        const data = await res.json();
+
+        titleEl.textContent = data.monthName || `${month}/${year}`;
+        subEl.innerHTML = `Total Spending: <span style="font-weight:700; color:var(--accent2);">${fmt(data.totalSpending)}</span> &bull; ${data.entryCount || 0} entries`;
+
+        const { parentGroups = [], standalone = [], totalSpending = 0 } = data;
+
+        if (!parentGroups.length && !standalone.length) {
+            contentEl.innerHTML = `
+                <div style="text-align:center; padding:35px 20px; color:var(--text3);">
+                    <div style="font-size:1.8rem; margin-bottom:8px; opacity:0.6;">📅</div>
+                    <div style="font-size:0.95rem; font-weight:500; color:var(--text2); margin-bottom:4px;">No spending in ${esc(data.monthName)}</div>
+                    <div style="font-size:0.82rem;">Total spending for this month is ₹0</div>
+                </div>
+            `;
+            return;
+        }
+
+        let rowsHtml = '';
+
+        // 1. Parent categories with subcategories
+        for (const g of parentGroups) {
+            rowsHtml += `
+                <tr style="background:rgba(255,255,255,0.035); border-bottom:1px solid var(--border);">
+                    <td style="padding:10px 14px; font-weight:700;">
+                        <span class="badge badge-amber" style="font-size:0.75rem;">${esc(g.parentName)}</span>
+                    </td>
+                    <td style="padding:10px 14px; text-align:right; font-weight:700; color:var(--text); font-size:0.95rem;">
+                        ${fmt(g.total)}
+                    </td>
+                </tr>
+            `;
+
+            for (const sub of g.subcategories) {
+                rowsHtml += `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <td style="padding:8px 14px 8px 30px; font-weight:500; color:var(--text2); font-size:0.88rem;">
+                            <span style="color:var(--text3); margin-right:6px;">↳</span>${esc(sub.name)}
+                        </td>
+                        <td style="padding:8px 14px; text-align:right; font-weight:600; color:var(--green); font-size:0.88rem;">
+                            ${fmt(sub.total)}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // 2. Standalone categories (no parent)
+        for (const s of standalone) {
+            rowsHtml += `
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:11px 14px; font-weight:500; color:var(--text);">
+                        ${esc(s.name)}
+                    </td>
+                    <td style="padding:11px 14px; text-align:right; font-weight:600; color:var(--green); font-size:0.95rem;">
+                        ${fmt(s.total)}
+                    </td>
+                </tr>
+            `;
+        }
+
+        contentEl.innerHTML = `
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="padding:10px 14px; text-align:left; font-size:0.75rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); background:var(--bg3);">Category / Subcategory</th>
+                        <th style="padding:10px 14px; text-align:right; font-size:0.75rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); background:var(--bg3);">Amount Spent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+                <tfoot>
+                    <tr style="background:rgba(124,106,247,0.08);">
+                        <td style="padding:12px 14px; font-weight:700; color:var(--text); font-size:0.95rem;">Total Spending</td>
+                        <td style="padding:12px 14px; text-align:right; font-weight:700; color:var(--accent2); font-size:1.05rem;">${fmt(totalSpending)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        `;
+    } catch (err) {
+        console.error('Error opening month breakdown modal:', err);
+        contentEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--red);">Failed to load monthly breakdown.</div>`;
+    }
+}
+
+function closeMonthBreakdownModal() {
+    const modal = document.getElementById('monthBreakdownModal');
+    if (!modal) return;
+    modal.classList.remove('show');
+    setTimeout(() => { modal.style.display = 'none'; }, 200);
 }
 
 function drawUserCats(canvasId, dist) {
@@ -1945,6 +2089,7 @@ async function doExport(url, name) {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeCategoryMonthlyModal();
+        closeMonthBreakdownModal();
         closeConfirmModal(false);
     }
 });
