@@ -7,7 +7,19 @@
 
 const ExportUtils = {
     /**
-     * Convert data to CSV format
+     * Format a date into clean 'DD MMM YYYY' format (e.g. '31 Oct 2026')
+     */
+    formatDate: (d) => {
+        if (!d) return '';
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return '';
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${day} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+    },
+
+    /**
+     * Convert data to CSV format with UTF-8 BOM so Excel opens without encoding issues
      */
     toCSV: (headers, rows) => {
         const csvHeaders = headers.map(h => `"${h}"`).join(',');
@@ -19,7 +31,8 @@ const ExportUtils = {
                 return `"${strValue}"`;
             }).join(',');
         }).join('\n');
-        return `${csvHeaders}\n${csvRows}`;
+        // Prepend UTF-8 BOM (\uFEFF) to guarantee Excel displays UTF-8 (e.g. arrows) and proper dates
+        return '\uFEFF' + `${csvHeaders}\n${csvRows}`;
     },
 
     /**
@@ -31,8 +44,8 @@ const ExportUtils = {
             'ID': user._id,
             'Name': user.name,
             'Email': user.email,
-            'Registration Date': new Date(user.createdAt).toISOString().split('T')[0],
-            'Last Login': new Date(user.lastLogin).toISOString().split('T')[0],
+            'Registration Date': ExportUtils.formatDate(user.createdAt),
+            'Last Login': ExportUtils.formatDate(user.lastLogin),
             'Total Categories': user.categoryCount || 0,
             'Total Entries': user.entryCount || 0,
             'Total Spending': user.totalSpending || 0,
@@ -46,7 +59,7 @@ const ExportUtils = {
     generateEntriesCSV: (entries) => {
         const headers = ['Date', 'Category', 'Item Name', 'Amount', 'Payment Mode', 'Notes'];
         const rows = entries.map(entry => ({
-            'Date': new Date(entry.date).toISOString().split('T')[0],
+            'Date': ExportUtils.formatDate(entry.date),
             'Category': entry.categoryName || 'Unknown',
             'Item Name': entry.itemName,
             'Amount': entry.amount,
@@ -65,7 +78,7 @@ const ExportUtils = {
             'Name': cat.name,
             'Type': cat.type,
             'Parent Category': cat.parentCategory || 'N/A',
-            'Created Date': new Date(cat.createdAt).toISOString().split('T')[0],
+            'Created Date': ExportUtils.formatDate(cat.createdAt),
             'Total Entries': cat.entryCount || 0,
             'Total Spending': cat.totalSpending || 0,
         }));

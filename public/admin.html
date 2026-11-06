@@ -14,6 +14,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 
     <style>
         :root {
@@ -717,7 +719,8 @@
                             <option value="2021">2021</option>
                             <option value="2020">2020</option>
                         </select>
-                        <button class="btn btn-primary" onclick="exportCombinedMonthly()">Download Monthly Report</button>
+                        <button class="btn btn-primary" onclick="exportCombinedMonthly()">Download Monthly CSV</button>
+                        <button class="btn btn-outline" onclick="exportCombinedMonthlyPDF()" style="margin-left:8px;">Download Monthly PDF</button>
                     </div>
                 </div>
             </div>
@@ -1279,7 +1282,7 @@ async function renderUserDetail(userId, containerId, onBack) {
                             </div>
                         </div>
                         <div class="flex gap-2" style="flex-wrap:wrap;">
-                            <button class="btn btn-outline btn-sm" onclick="doExport('${API}/export/${userId}/json','${esc(user.name).replace(/'/g,"\\'")}')">JSON</button>
+                            <button class="btn btn-outline btn-sm" onclick="exportUserPDF('${userId}','${esc(user.name).replace(/'/g,"\\'")}')">Export PDF</button>
                             <button class="btn btn-outline btn-sm" onclick="doExport('${API}/export/${userId}/csv/entries','${esc(user.name).replace(/'/g,"\\'")}')">Entries CSV</button>
                             <button class="btn btn-outline btn-sm" onclick="doExport('${API}/export/${userId}/csv/categories','${esc(user.name).replace(/'/g,"\\'")}')">Categories CSV</button>
                             ${user.isAdmin ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteUser('${userId}', '${esc(user.name).replace(/'/g,"\\'")}', true)">Delete User</button>`}
@@ -2015,12 +2018,335 @@ function renderExportGrid(users) {
             <h4>${esc(u.name)}</h4>
             <p>${esc(u.email)} · ${u.entryCount||0} entries · ${fmt(u.totalSpending)}</p>
             <div class="btn-row">
-                <button class="btn btn-outline btn-sm" onclick="doExport('${API}/export/${u._id}/json','${esc(u.name)}')">JSON</button>
+                <button class="btn btn-outline btn-sm" onclick="exportUserPDF('${u._id}','${esc(u.name).replace(/'/g,"\\'")}')">PDF</button>
                 <button class="btn btn-outline btn-sm" onclick="doExport('${API}/export/${u._id}/csv/entries','${esc(u.name)}')">Entries</button>
                 <button class="btn btn-outline btn-sm" onclick="doExport('${API}/export/${u._id}/csv/categories','${esc(u.name)}')">Categories</button>
             </div>
         </div>
     `).join('');
+}
+
+function fmtPDFCurrency(amt) {
+    const n = Number(amt) || 0;
+    return 'Rs. ' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+async function exportUserPDF(userId, userName) {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        toast('PDF library is loading. Please try again in a moment.', 'err');
+        return;
+    }
+    toast(`Preparing PDF report for ${userName}…`, 'ok');
+    try {
+        const res = await apiFetch(`${API}/export/${userId}/json`);
+        if (!res.ok) throw new Error('Failed to fetch user export data');
+        const data = await res.json();
+
+        const user = data.user || {};
+        const stats = data.statistics?.['Summary Statistics'] || {};
+        const categories = data.categories || [];
+        const entries = data.entries || [];
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Header Banner
+        doc.setFillColor(31, 35, 53);
+        doc.rect(0, 0, 210, 32, 'F');
+        doc.setFillColor(124, 106, 247);
+        doc.rect(0, 30, 210, 2, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.setTextColor(255, 255, 255);
+        doc.text('PAPERLESS', 14, 18);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(167, 139, 250);
+        doc.text('ADMINISTRATIVE USER EXPENSE REPORT', 14, 25);
+
+        doc.setFontSize(8);
+        doc.setTextColor(200, 205, 220);
+        doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, 196, 20, { align: 'right' });
+
+        // User Details
+        let currentY = 40;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(30, 35, 50);
+        doc.text(user.name || userName || 'User Report', 14, currentY);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 105, 120);
+        doc.text(`Email: ${user.email || 'N/A'}    |    User ID: ${user.id || userId}`, 14, currentY + 5);
+        doc.text(`Joined: ${fmtDate(user.createdAt)}    |    Last Login: ${fmtDate(user.lastLogin)}`, 14, currentY + 10);
+
+        currentY += 18;
+
+        // KPI Summary Box
+        doc.setFillColor(245, 247, 252);
+        doc.roundedRect(14, currentY, 182, 18, 2, 2, 'F');
+        doc.setDrawColor(220, 225, 235);
+        doc.roundedRect(14, currentY, 182, 18, 2, 2, 'S');
+
+        const totalSpent = Number(stats['Total Spending']) || entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        const totalEntries = stats['Total Entries'] || entries.length;
+        const totalCats = stats['Total Categories'] || categories.length;
+        const avgEntry = totalEntries > 0 ? (totalSpent / totalEntries) : 0;
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(120, 125, 140);
+        doc.text('TOTAL SPENDING', 20, currentY + 6);
+        doc.text('TOTAL ENTRIES', 70, currentY + 6);
+        doc.text('CATEGORIES', 118, currentY + 6);
+        doc.text('AVG ENTRY', 160, currentY + 6);
+
+        doc.setFontSize(9.5);
+        doc.setTextColor(124, 106, 247);
+        doc.text(fmtPDFCurrency(totalSpent), 20, currentY + 13);
+        doc.setTextColor(30, 35, 50);
+        doc.text(String(totalEntries), 70, currentY + 13);
+        doc.text(String(totalCats), 118, currentY + 13);
+        doc.text(fmtPDFCurrency(Math.round(avgEntry)), 160, currentY + 13);
+
+        currentY += 24;
+
+        // Categories Table
+        if (categories.length > 0) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(30, 35, 50);
+            doc.text(`Categories Overview (${categories.length})`, 14, currentY);
+
+            const catSpending = {};
+            const catCounts = {};
+            entries.forEach(e => {
+                const cId = (e.categoryId && e.categoryId._id) ? e.categoryId._id : (e.categoryId || 'unknown');
+                catSpending[cId] = (catSpending[cId] || 0) + (Number(e.amount) || 0);
+                catCounts[cId] = (catCounts[cId] || 0) + 1;
+            });
+
+            const catRows = categories.map(c => {
+                const spent = catSpending[c.id || c._id] || 0;
+                const cnt = catCounts[c.id || c._id] || 0;
+                let displayName = c.name || 'Unnamed';
+                if (c.parentCategory && ['Miscellaneous', 'Savings'].includes(c.parentCategory)) {
+                    displayName = `${c.parentCategory} → ${displayName}`;
+                }
+                return [
+                    displayName,
+                    c.parentCategory || '—',
+                    cnt,
+                    fmtPDFCurrency(spent)
+                ];
+            });
+
+            doc.autoTable({
+                startY: currentY + 3,
+                head: [['Category Name', 'Parent Category', 'Entries', 'Total Spent']],
+                body: catRows,
+                theme: 'striped',
+                headStyles: { fillColor: [124, 106, 247], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+                styles: { fontSize: 8, cellPadding: 2.5 },
+                columnStyles: {
+                    0: { cellWidth: 70 },
+                    1: { cellWidth: 40 },
+                    2: { cellWidth: 25, halign: 'center' },
+                    3: { cellWidth: 47, halign: 'right' }
+                },
+                margin: { left: 14, right: 14 }
+            });
+
+            currentY = doc.lastAutoTable.finalY + 10;
+        }
+
+        // Transactions History Table
+        if (currentY > 230) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(30, 35, 50);
+        doc.text(`Transactions History (${entries.length})`, 14, currentY);
+
+        const entryRows = entries.map(e => [
+            fmtDate(e.date),
+            e.categoryName || 'Unknown',
+            e.itemName || '',
+            fmtPDFCurrency(e.amount || 0),
+            e.paymentMode || 'Cash',
+            e.notes || ''
+        ]);
+
+        doc.autoTable({
+            startY: currentY + 3,
+            head: [['Date', 'Category', 'Item Name', 'Amount', 'Mode', 'Notes']],
+            body: entryRows.length > 0 ? entryRows : [['—', 'No transactions recorded', '—', '—', '—', '—']],
+            theme: 'grid',
+            headStyles: { fillColor: [31, 35, 53], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+            styles: { fontSize: 8, cellPadding: 2.5 },
+            columnStyles: {
+                0: { cellWidth: 26 },
+                1: { cellWidth: 40 },
+                2: { cellWidth: 42 },
+                3: { cellWidth: 28, halign: 'right' },
+                4: { cellWidth: 18, halign: 'center' },
+                5: { cellWidth: 28 }
+            },
+            margin: { left: 14, right: 14 },
+            didDrawPage: (data) => {
+                const totalPages = doc.internal.getNumberOfPages();
+                doc.setFontSize(7.5);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(140, 145, 160);
+                doc.text(
+                    `Paperless Admin — Page ${data.pageNumber} of ${totalPages}`,
+                    105,
+                    290,
+                    { align: 'center' }
+                );
+            }
+        });
+
+        const safeFilename = (userName || 'user').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        doc.save(`${safeFilename}_expense_report.pdf`);
+        toast(`PDF report downloaded for ${userName}!`, 'ok');
+    } catch (err) {
+        console.error('PDF export error:', err);
+        toast('Failed to generate PDF: ' + err.message, 'err');
+    }
+}
+
+async function exportCombinedMonthlyPDF() {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        toast('PDF library is loading. Please try again in a moment.', 'err');
+        return;
+    }
+    const month = document.getElementById('combinedExportMonth').value;
+    const year = document.getElementById('combinedExportYear').value;
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthName = months[parseInt(month) - 1] || `Month ${month}`;
+
+    toast(`Preparing monthly PDF for ${monthName} ${year}…`, 'ok');
+    try {
+        const res = await apiFetch(`${API}/export/monthly/data?month=${month}&year=${year}`);
+        if (!res.ok) throw new Error('Failed to fetch monthly data');
+        const data = await res.json();
+
+        if (!data.entries || data.entries.length === 0) {
+            toast(`No transactions found for ${monthName} ${year}.`, 'err');
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Header Banner
+        doc.setFillColor(31, 35, 53);
+        doc.rect(0, 0, 210, 32, 'F');
+        doc.setFillColor(124, 106, 247);
+        doc.rect(0, 30, 210, 2, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.setTextColor(255, 255, 255);
+        doc.text('PAPERLESS', 14, 18);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(167, 139, 250);
+        doc.text('MONTHLY COMBINED EXPENSE REPORT', 14, 25);
+
+        doc.setFontSize(8);
+        doc.setTextColor(200, 205, 220);
+        doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, 196, 20, { align: 'right' });
+
+        let currentY = 40;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(30, 35, 50);
+        doc.text(`${monthName} ${year} Summary`, 14, currentY);
+
+        currentY += 6;
+
+        // KPI Box
+        doc.setFillColor(245, 247, 252);
+        doc.roundedRect(14, currentY, 182, 18, 2, 2, 'F');
+        doc.setDrawColor(220, 225, 235);
+        doc.roundedRect(14, currentY, 182, 18, 2, 2, 'S');
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(120, 125, 140);
+        doc.text('TOTAL SPENT', 20, currentY + 6);
+        doc.text('TOTAL TRANSACTIONS', 75, currentY + 6);
+        doc.text('ACTIVE USERS', 140, currentY + 6);
+
+        doc.setFontSize(9.5);
+        doc.setTextColor(124, 106, 247);
+        doc.text(fmtPDFCurrency(data.totalSpending || 0), 20, currentY + 13);
+        doc.setTextColor(30, 35, 50);
+        doc.text(String(data.totalEntries || data.entries.length), 75, currentY + 13);
+        doc.text(String(data.uniqueUsersCount || '—'), 140, currentY + 13);
+
+        currentY += 24;
+
+        // Transactions Table
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(30, 35, 50);
+        doc.text(`Transactions Breakdown (${data.entries.length})`, 14, currentY);
+
+        const rows = data.entries.map(e => [
+            e.date,
+            e.userName || 'Unknown',
+            e.categoryName || 'Unknown',
+            e.itemName || '',
+            fmtPDFCurrency(e.amount || 0),
+            e.paymentMode || 'Cash',
+            e.notes || ''
+        ]);
+
+        doc.autoTable({
+            startY: currentY + 3,
+            head: [['Date', 'User', 'Category', 'Item Name', 'Amount', 'Mode', 'Notes']],
+            body: rows,
+            theme: 'grid',
+            headStyles: { fillColor: [31, 35, 53], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+            styles: { fontSize: 8, cellPadding: 2.5 },
+            columnStyles: {
+                0: { cellWidth: 24 },
+                1: { cellWidth: 32 },
+                2: { cellWidth: 36 },
+                3: { cellWidth: 36 },
+                4: { cellWidth: 24, halign: 'right' },
+                5: { cellWidth: 14, halign: 'center' },
+                6: { cellWidth: 16 }
+            },
+            margin: { left: 14, right: 14 },
+            didDrawPage: (pageData) => {
+                const totalPages = doc.internal.getNumberOfPages();
+                doc.setFontSize(7.5);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(140, 145, 160);
+                doc.text(
+                    `Paperless Admin — Page ${pageData.pageNumber} of ${totalPages}`,
+                    105,
+                    290,
+                    { align: 'center' }
+                );
+            }
+        });
+
+        doc.save(`Paperless_${monthName}_${year}_Monthly_Report.pdf`);
+        toast(`Monthly PDF report downloaded for ${monthName} ${year}!`, 'ok');
+    } catch (err) {
+        console.error('Monthly PDF export error:', err);
+        toast('Failed to generate monthly PDF: ' + err.message, 'err');
+    }
 }
 
 function exportCombinedMonthly() {

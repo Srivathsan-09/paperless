@@ -766,7 +766,7 @@ router.get('/export/monthly/csv', verifyToken, verifyAdmin, async (req, res) => 
             }
 
             return {
-                date: new Date(entry.date).toISOString().split('T')[0],
+                date: ExportUtils.formatDate(entry.date),
                 userName: user?.name || 'Unknown User',
                 userEmail: user?.email || 'Unknown Email',
                 categoryName: catName,
@@ -789,12 +789,81 @@ router.get('/export/monthly/csv', verifyToken, verifyAdmin, async (req, res) => 
             'Notes': e.notes
         })));
 
-        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="all_users_entries_${yearNum}_${String(monthNum).padStart(2, '0')}.csv"`);
         res.send(csvContent);
     } catch (err) {
         console.error('Error exporting monthly report CSV:', err);
         res.status(500).json({ success: false, message: 'Error exporting monthly report' });
+    }
+});
+
+/**
+ * GET /api/admin/export/monthly/data
+ * Get enriched monthly entries and summary for PDF reports
+ */
+router.get('/export/monthly/data', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const { month, year } = req.query;
+        if (!month || !year) {
+            return res.status(400).json({ success: false, message: 'Month and Year parameters are required' });
+        }
+
+        const monthNum = parseInt(month);
+        const yearNum = parseInt(year);
+        const startDay = new Date(Date.UTC(yearNum, monthNum - 1, 1));
+        const endDay = new Date(Date.UTC(yearNum, monthNum, 0, 23, 59, 59, 999));
+
+        const entries = await Entry.find({
+            date: { $gte: startDay, $lte: endDay }
+        }).sort({ date: -1 });
+
+        let totalSpending = 0;
+        const userSet = new Set();
+        const enrichedEntries = await Promise.all(entries.map(async (entry) => {
+            const [category, user] = await Promise.all([
+                Category.findById(entry.categoryId).select('name parentCategory'),
+                User.findById(entry.userId).select('name email')
+            ]);
+
+            let catName = category?.name || 'Unknown';
+            if (category?.parentCategory && ['Miscellaneous', 'Savings'].includes(category.parentCategory)) {
+                catName = `${category.parentCategory} → ${catName}`;
+            }
+
+            totalSpending += (entry.amount || 0);
+            if (entry.userId) userSet.add(entry.userId.toString());
+
+            return {
+                id: entry._id,
+                date: ExportUtils.formatDate(entry.date),
+                rawDate: entry.date,
+                userName: user?.name || 'Unknown User',
+                userEmail: user?.email || 'Unknown Email',
+                categoryName: catName,
+                itemName: entry.itemName || '',
+                amount: entry.amount || 0,
+                paymentMode: entry.paymentMode || 'Cash',
+                notes: entry.notes || ''
+            };
+        }));
+
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const monthName = months[monthNum - 1] || `Month ${monthNum}`;
+
+        res.json({
+            success: true,
+            year: yearNum,
+            month: monthNum,
+            monthName,
+            totalSpending,
+            totalEntries: enrichedEntries.length,
+            uniqueUsersCount: userSet.size,
+            entries: enrichedEntries
+        });
+    } catch (err) {
+        console.error('Error fetching monthly report data:', err);
+        res.status(500).json({ success: false, message: 'Error fetching monthly report data' });
     }
 });
 
